@@ -318,37 +318,41 @@ browse:
     rows: [1, 6]
   
   # Search button - opens chat input for item search
+  # {0} = current search query or "None"
   search:
     material: ANVIL
-    name: "<yellow>Search Items</yellow>"
+    name: "<yellow>Search: {0}</yellow>"
     lore:
       - "<gray>Click to search for items</gray>"
-      - "<gray>by name</gray>"
+      - "<gray>Type 'clear' to reset</gray>"
     custom-model-data: 0
     slot: 0
   
   # Sort button - cycles through sort options
+  # {0} = current sort mode (in name), next sort mode (in lore)
   sort:
     material: HOPPER
-    name: "<green>Sort</green>"
+    name: "<green>Sort: {0}</green>"
     lore:
-      - "<gray>Change how items are sorted</gray>"
+      - "<yellow>Click: {0}</yellow>"
     custom-model-data: 0
     slot: 2
   
   # Filter button - cycles through filter options
+  # {0} = current filter (in name), next filter (in lore)
   filter:
     material: NAME_TAG
-    name: "<aqua>Filter</aqua>"
+    name: "<aqua>Filter: {0}</aqua>"
     lore:
-      - "<gray>Filter shops by type</gray>"
+      - "<yellow>Click: {0}</yellow>"
     custom-model-data: 0
     slot: 4
   
   # Stock filter toggle - show only shops with available stock/space
+  # {0} = ON or OFF
   stock-filter:
     material: CHEST
-    name: "<gold>In Stock Only</gold>"
+    name: "<gold>In Stock Only: {0}</gold>"
     lore:
       - "<gray>Only show shops with</gray>"
       - "<gray>available stock/space</gray>"
