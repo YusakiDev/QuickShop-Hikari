@@ -298,6 +298,8 @@ browse:
   title: "<dark_aqua>Market Browser</dark_aqua>"
   rows: 6
   
+  # Row 1 has borders in empty slots (buttons override border at their slots)
+  # Row 6 is the pagination/control row at bottom
   border:
     material: GRAY_STAINED_GLASS_PANE
     name: " "
@@ -312,7 +314,7 @@ browse:
       - "<gray>Click to search for items</gray>"
       - "<gray>by name</gray>"
     custom-model-data: 0
-    slot: 1
+    slot: 0
   
   # Sort button - cycles through sort options
   sort:
@@ -321,16 +323,27 @@ browse:
     lore:
       - "<gray>Change how items are sorted</gray>"
     custom-model-data: 0
-    slot: 3
+    slot: 2
   
   # Filter button - cycles through filter options
   filter:
-    material: PAPER
+    material: NAME_TAG
     name: "<aqua>Filter</aqua>"
     lore:
       - "<gray>Filter shops by type</gray>"
     custom-model-data: 0
-    slot: 5
+    slot: 4
+  
+  # Stock filter toggle - show only shops with available stock/space
+  stock-filter:
+    material: CHEST
+    name: "<gold>In Stock Only</gold>"
+    lore:
+      - "<gray>Only show shops with</gray>"
+      - "<gray>available stock/space</gray>"
+      - "<yellow>Click to toggle</yellow>"
+    custom-model-data: 0
+    slot: 6
   
   # Close button
   close:
@@ -344,7 +357,7 @@ browse:
     material: OAK_DOOR
     name: "<white>Back to Market</white>"
     custom-model-data: 0
-    slot: 0
+    slot: 8
   
   # Pagination controls (bottom row)
   previous-page:
@@ -425,3 +438,8 @@ messages:
     invalid-multiple: "<red>Invalid quantity! Must be a multiple of <white>{0}</white>. Enter <white>0</white> to cancel.</red>"
     # Shown when player enters quantity exceeding stock
     invalid-stock: "<red>Invalid quantity! Not enough stock available. Enter <white>0</white> to cancel.</red>"
+  
+  # Browse menu messages
+  browse:
+    # Shown when player clicks "Search" button
+    enter-search: "<yellow>Enter an item name to search. Type '<white>clear</white>' to reset.</yellow>"

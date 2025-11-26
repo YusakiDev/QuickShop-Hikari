@@ -21,10 +21,11 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.common.util.CommonUtil;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
+import io.papermc.lib.PaperLib;
 import net.kyori.adventure.text.Component;
 import net.tnemc.item.AbstractItemStack;
 import net.tnemc.item.bukkit.BukkitItemStack;
-import net.tnemc.menu.core.PlayerInstancePage;
+import net.tnemc.menu.core.Page;
 import net.tnemc.menu.core.builder.IconBuilder;
 import net.tnemc.menu.core.callbacks.page.PageOpenCallback;
 import net.tnemc.menu.core.icon.action.impl.DataAction;
@@ -32,17 +33,21 @@ import net.tnemc.menu.core.icon.action.impl.RunnableAction;
 import net.tnemc.menu.core.icon.action.impl.SwitchPageAction;
 import net.tnemc.menu.core.viewer.MenuViewer;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_FILTER;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_SORT;
+import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_STOCK_ONLY;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SELECTED_ITEM_SHOPS;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOPS_PAGE;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOP_LIST_PAGE;
@@ -70,7 +75,7 @@ public class ShopListPage {
     if (viewerOpt.isEmpty()) return;
 
     final MenuViewer viewer = viewerOpt.get();
-    if (!(callback.getPage() instanceof final PlayerInstancePage playerPage)) return;
+    final Page menuPage = callback.getPage();
 
     final Optional<Object> shopsData = viewer.findData(SELECTED_ITEM_SHOPS);
     final UUID id = viewer.uuid();
@@ -78,12 +83,15 @@ public class ShopListPage {
 
     if (shopsData.isEmpty() || player == null) return;
 
-    playerPage.getIcons(id).clear();
+    menuPage.getIcons().clear();
 
     // Load GUI configuration
     final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("browse");
     final GuiConfig.IconConfig borderConfig = menuConfig != null ? menuConfig.getIcon("border") : null;
     final GuiConfig.IconConfig backConfig = menuConfig != null ? menuConfig.getIcon("back") : null;
+    final GuiConfig.IconConfig itemInfoConfig = menuConfig != null ? menuConfig.getIcon("item-info") : null;
+    final GuiConfig.IconConfig sortConfig = menuConfig != null ? menuConfig.getIcon("shop-list-sort") : null;
+    final GuiConfig.IconConfig closeConfig = menuConfig != null ? menuConfig.getIcon("close") : null;
     final GuiConfig.IconConfig prevPageConfig = menuConfig != null ? menuConfig.getIcon("previous-page") : null;
     final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
     final GuiConfig.IconConfig pageInfoConfig = menuConfig != null ? menuConfig.getIcon("page-info") : null;
@@ -92,13 +100,17 @@ public class ShopListPage {
 
     // Get current state
     final BrowseSortMode sortMode = (BrowseSortMode) viewer.dataOrDefault(BROWSE_SORT, BrowseSortMode.PRICE_ASC);
+    final BrowseFilterMode filterMode = (BrowseFilterMode) viewer.dataOrDefault(BROWSE_FILTER, BrowseFilterMode.ALL);
+    final boolean stockOnly = (Boolean) viewer.dataOrDefault(BROWSE_STOCK_ONLY, false);
     final int page = (Integer) viewer.dataOrDefault(SHOP_LIST_PAGE, 1);
 
     @SuppressWarnings("unchecked")
-    final List<Shop> shops = (ArrayList<Shop>) shopsData.get();
+    final List<Shop> allShops = (ArrayList<Shop>) shopsData.get();
 
-    // Sort shops
-    final List<Shop> sortedShops = MarketUtils.sortShops(shops, sortMode);
+    // Apply filter and stock filter, then sort
+    List<Shop> filteredShops = MarketUtils.filterShops(allShops, filterMode);
+    filteredShops = MarketUtils.filterByStock(filteredShops, stockOnly);
+    final List<Shop> sortedShops = MarketUtils.sortShops(filteredShops, sortMode);
 
     // Calculate average price for comparison indicators
     final double avgPrice = sortedShops.isEmpty() ? 0 : 
@@ -117,48 +129,42 @@ public class ShopListPage {
     final IconBuilder borderBuilder = new IconBuilder(QuickShop.getInstance().stack().of(borderMaterial, 1));
     final List<Integer> borderRows = borderConfig != null ? borderConfig.getRows() : List.of(1, 6);
     for (final int row : borderRows) {
-      playerPage.setRow(id, row, borderBuilder);
+      menuPage.setRow(row, borderBuilder);
     }
 
     // === Control Row (Row 1) ===
+    // Layout: [Item Info] [Sort] [Filter] [Stock] [Back]
+    // Uses same slot positions as GroupedItemPage for consistency
 
-    // Back button (slot 0)
-    final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
-    final int backSlot = backConfig != null ? backConfig.getSlot() : 0;
-
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
-            .display(getConfigDisplay(backConfig, "<white>Back to Market</white>")))
-            .withSlot(backSlot)
-            .withActions(
-                    new DataAction(SHOPS_PAGE, 1),
-                    new SwitchPageAction(menuName, 1) // Go back to grouped view
-            )
-            .build());
-
-    // Item info (slot 4) - shows what item we're viewing
-    if (!sortedShops.isEmpty()) {
-      final Shop firstShop = sortedShops.getFirst();
+    // Item info - shows what item we're viewing (slot 0 - top left)
+    final GuiConfig.IconConfig searchConfig = menuConfig != null ? menuConfig.getIcon("search") : null;
+    final int itemInfoSlot = searchConfig != null ? searchConfig.getSlot() : 0;
+    if (!allShops.isEmpty()) {
+      final Shop firstShop = allShops.getFirst();
+      final String filterIndicator = getFilterIndicator(filterMode);
       final AbstractItemStack<ItemStack> infoStack = new BukkitItemStack()
               .of(firstShop.getItem().getType().key().asString(), 1)
               .display(QuickShop.getInstance().platform().miniMessage().deserialize(
                       "<yellow>" + CommonUtil.prettifyText(firstShop.getItem().getType().name()) + "</yellow>"))
               .lore(List.of(
-                      QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Viewing <white>" + sortedShops.size() + "</white> shops</gray>"),
+                      QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Showing: " + filterIndicator + "</gray>"),
+                      QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Shops: <white>" + sortedShops.size() + "</white></gray>"),
                       QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Average price: <gold>" + formatPrice(avgPrice) + "</gold></gray>")
               ));
       
-      playerPage.addIcon(id, new IconBuilder(infoStack).withSlot(4).build());
+      menuPage.addIcon(new IconBuilder(infoStack).withSlot(itemInfoSlot).build());
     }
 
-    // Sort toggle (slot 6)
+    // Sort toggle
+    final String sortMaterial = sortConfig != null ? sortConfig.getMaterial() : "HOPPER";
+    final int sortSlot = sortConfig != null ? sortConfig.getSlot() : 2;
     final BrowseSortMode nextSort = sortMode.next();
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of("HOPPER", 1)
-            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<green>Sort</green>"))
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(sortMaterial, 1)
+            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<green>Sort: " + getSortDisplayName(sortMode) + "</green>"))
             .lore(List.of(
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Current: <white>" + getSortDisplayName(sortMode) + "</white></gray>"),
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: <white>" + getSortDisplayName(nextSort) + "</white></yellow>")
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: " + getSortDisplayName(nextSort) + "</yellow>")
             )))
-            .withSlot(6)
+            .withSlot(sortSlot)
             .withActions(
                     new DataAction(BROWSE_SORT, nextSort),
                     new DataAction(SHOP_LIST_PAGE, 1),
@@ -166,14 +172,57 @@ public class ShopListPage {
             )
             .build());
 
-    // Close button (slot 8)
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of("BARRIER", 1)
-            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<red>Close</red>")))
-            .withSlot(8)
-            .withActions(new RunnableAction((click) -> {
-              final Player p = Bukkit.getPlayer(click.player().identifier());
-              if (p != null) p.closeInventory();
-            }))
+    // Filter button - same as main browse page
+    final GuiConfig.IconConfig filterConfig = menuConfig != null ? menuConfig.getIcon("filter") : null;
+    final String filterMaterial = filterConfig != null ? filterConfig.getMaterial() : "NAME_TAG";
+    final int filterSlot = filterConfig != null ? filterConfig.getSlot() : 4;
+    final BrowseFilterMode nextFilter = filterMode.next();
+    
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(filterMaterial, 1)
+            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<aqua>Filter: " + getFilterDisplayName(filterMode) + "</aqua>"))
+            .lore(List.of(
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: " + getFilterDisplayName(nextFilter) + "</yellow>")
+            )))
+            .withSlot(filterSlot)
+            .withActions(
+                    new DataAction(BROWSE_FILTER, nextFilter),
+                    new DataAction(SHOP_LIST_PAGE, 1),
+                    new SwitchPageAction(menuName, 2)
+            )
+            .build());
+
+    // Stock filter toggle button
+    final GuiConfig.IconConfig stockConfig = menuConfig != null ? menuConfig.getIcon("stock-filter") : null;
+    final String stockMaterial = stockConfig != null ? stockConfig.getMaterial() : "CHEST";
+    final int stockSlot = stockConfig != null ? stockConfig.getSlot() : 6;
+    final String stockStatus = stockOnly ? "<green>ON</green>" : "<red>OFF</red>";
+    
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(stockMaterial, 1)
+            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<gold>In Stock Only: " + stockStatus + "</gold>"))
+            .lore(List.of(
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Only show shops with</gray>"),
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>available stock/space</gray>"),
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click to toggle</yellow>")
+            )))
+            .withSlot(stockSlot)
+            .withActions(
+                    new DataAction(BROWSE_STOCK_ONLY, !stockOnly),
+                    new DataAction(SHOP_LIST_PAGE, 1),
+                    new SwitchPageAction(menuName, 2)
+            )
+            .build());
+
+    // Back button
+    final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
+    final int backSlot = backConfig != null ? backConfig.getSlot() : 8;
+
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
+            .display(getConfigDisplay(backConfig, "<white>Back to Market</white>")))
+            .withSlot(backSlot)
+            .withActions(
+                    new DataAction(SHOPS_PAGE, 1),
+                    new SwitchPageAction(menuName, 1) // Go back to grouped view
+            )
             .build());
 
     // === Pagination Row (Bottom) ===
@@ -185,13 +234,13 @@ public class ShopListPage {
     final int pageInfoSlot = pageInfoConfig != null ? pageInfoConfig.getSlot() : 49;
 
     if (maxPages > 1) {
-      playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
+      menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
               .display(getConfigDisplay(prevPageConfig, "<white><< Previous Page</white>")))
               .withSlot(prevSlot)
               .withActions(new DataAction(SHOP_LIST_PAGE, prev), new SwitchPageAction(menuName, 2))
               .build());
 
-      playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
+      menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
               .display(getConfigDisplay(nextPageConfig, "<white>Next Page >></white>")))
               .withSlot(nextSlot)
               .withActions(new DataAction(SHOP_LIST_PAGE, next), new SwitchPageAction(menuName, 2))
@@ -199,10 +248,13 @@ public class ShopListPage {
     }
 
     // Page info
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(pageInfoMaterial, 1)
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(pageInfoMaterial, 1)
             .display(getConfigDisplay(pageInfoConfig, "<yellow>Page {0}/{1}</yellow>", page, Math.max(1, maxPages))))
             .withSlot(pageInfoSlot)
             .build());
+
+    // Check if player has teleport permission
+    final boolean canTeleport = QuickShop.getInstance().perm().hasPermission(player, "quickshop.find");
 
     // === Shop Grid ===
     int i = 0;
@@ -213,8 +265,8 @@ public class ShopListPage {
       }
       if (i >= (start + items)) break;
 
-      // Build shop lore with price indicator
-      final List<Component> lore = buildShopLore(id, shop, avgPrice);
+      // Build shop lore with price indicator and click instruction
+      final List<Component> lore = buildShopLore(shop, avgPrice, canTeleport);
       
       // Get display name for the item
       final String itemName = CommonUtil.prettifyText(shop.getItem().getType().name());
@@ -224,7 +276,43 @@ public class ShopListPage {
               .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>" + itemName + "</yellow>"))
               .lore(lore);
 
-      playerPage.addIcon(id, new IconBuilder(stack).withSlot(listStartSlot + (i - start)).build());
+      // Get teleport location - prefer sign location (never obstructed), fallback to shop location
+      final Location teleportTarget;
+      final List<Sign> signs = shop.getSigns();
+      if (!signs.isEmpty()) {
+        // Use first sign's location
+        teleportTarget = signs.getFirst().getLocation().clone().add(0.5, 0, 0.5);
+      } else {
+        // Fallback to shop location + 1 block up
+        teleportTarget = shop.getLocation().clone().add(0.5, 1, 0.5);
+      }
+      
+      final IconBuilder iconBuilder = new IconBuilder(stack)
+              .withSlot(listStartSlot + (i - start));
+      
+      // Only add teleport action if player has permission
+      if (canTeleport) {
+        // Capture for lambda
+        final Location finalTeleportTarget = teleportTarget;
+        final Location shopLoc = shop.getLocation().clone().add(0.5, 0.5, 0.5);
+        
+        iconBuilder.withActions(new RunnableAction((click) -> {
+          final Player p = Bukkit.getPlayer(click.player().identifier());
+          if (p != null) {
+            p.closeInventory();
+            // Teleport player to sign location, facing the shop
+            final Location teleportLoc = finalTeleportTarget.clone();
+            // Calculate direction to look at shop
+            final double dx = shopLoc.getX() - teleportLoc.getX();
+            final double dz = shopLoc.getZ() - teleportLoc.getZ();
+            teleportLoc.setYaw((float) Math.toDegrees(Math.atan2(-dx, dz)));
+            teleportLoc.setPitch(30); // Slightly looking down
+            PaperLib.teleportAsync(p, teleportLoc, PlayerTeleportEvent.TeleportCause.PLUGIN);
+          }
+        }));
+      }
+      
+      menuPage.addIcon(iconBuilder.build());
       
       i++;
     }
@@ -233,7 +321,7 @@ public class ShopListPage {
   /**
    * Build the lore for an individual shop
    */
-  private List<Component> buildShopLore(final UUID playerId, final Shop shop, final double avgPrice) {
+  private List<Component> buildShopLore(final Shop shop, final double avgPrice, final boolean canTeleport) {
     final List<Component> lore = new ArrayList<>();
     final var mm = QuickShop.getInstance().platform().miniMessage();
 
@@ -241,7 +329,7 @@ public class ShopListPage {
     lore.add(mm.deserialize("<gray>Owner: <white>" + shop.getOwner().getDisplay() + "</white></gray>"));
 
     // Shop type
-    final String typeColor = shop.isSelling() ? "<green>" : "<orange>";
+    final String typeColor = shop.isSelling() ? "<green>" : "<#FFA500>";
     final String typeText = shop.isSelling() ? "Selling" : "Buying";
     lore.add(mm.deserialize("<gray>Type: " + typeColor + typeText + "</gray>"));
 
@@ -269,6 +357,12 @@ public class ShopListPage {
             shop.getLocation().getBlockZ();
     lore.add(mm.deserialize("<gray>Location: <white>" + world + "</white></gray>"));
     lore.add(mm.deserialize("<dark_gray>" + coords + "</dark_gray>"));
+    
+    // Click instruction (only if player has teleport permission)
+    if (canTeleport) {
+      lore.add(Component.empty());
+      lore.add(mm.deserialize("<yellow>Click to teleport</yellow>"));
+    }
 
     return lore;
   }
@@ -317,6 +411,28 @@ public class ShopListPage {
       case PRICE_DESC -> "Price ↓";
       case STOCK -> "Stock";
       case NAME -> "Name";
+    };
+  }
+
+  /**
+   * Get display name for filter mode
+   */
+  private String getFilterDisplayName(final BrowseFilterMode mode) {
+    return switch (mode) {
+      case ALL -> "All";
+      case BUYING -> "Buying";
+      case SELLING -> "Selling";
+    };
+  }
+
+  /**
+   * Get colored indicator for current filter mode
+   */
+  private String getFilterIndicator(final BrowseFilterMode mode) {
+    return switch (mode) {
+      case ALL -> "<white>All Shops</white>";
+      case BUYING -> "<#FFA500>Buying Shops</#FFA500>";
+      case SELLING -> "<green>Selling Shops</green>";
     };
   }
 

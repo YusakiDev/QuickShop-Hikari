@@ -98,10 +98,31 @@ public final class MarketUtils {
       case SELLING -> shops.stream()
               .filter(Shop::isSelling)
               .toList();
-      case IN_STOCK -> shops.stream()
-              .filter(shop -> shop.getRemainingStock() > 0 || shop.isUnlimited())
-              .toList();
     };
+  }
+  
+  /**
+   * Filter shops to only show those with stock/space available
+   * @param shops List of shops to filter
+   * @param stockOnly Whether to filter to stock only
+   * @return Filtered list of shops
+   */
+  @NotNull
+  public static List<Shop> filterByStock(@NotNull final List<Shop> shops, final boolean stockOnly) {
+    if (!stockOnly) {
+      return new ArrayList<>(shops);
+    }
+    return shops.stream()
+            .filter(shop -> {
+              if (shop.isUnlimited()) return true;
+              // For selling shops, check stock; for buying shops, check space
+              if (shop.isSelling()) {
+                return shop.getRemainingStock() > 0;
+              } else {
+                return shop.getRemainingSpace() > 0;
+              }
+            })
+            .toList();
   }
   
   /**
@@ -121,11 +142,34 @@ public final class MarketUtils {
       case SELLING -> groups.stream()
               .filter(MarketItemGroup::hasSellingShops)
               .toList();
-      case IN_STOCK -> groups.stream()
-              .filter(group -> group.getSellingTotalStock() > 0 || 
-                      group.getSellingShops().stream().anyMatch(Shop::isUnlimited))
-              .toList();
     };
+  }
+  
+  /**
+   * Filter item groups to only show those with stock/space available
+   * @param groups List of groups to filter
+   * @param stockOnly Whether to filter to stock only
+   * @return Filtered list of groups
+   */
+  @NotNull
+  public static List<MarketItemGroup> filterGroupsByStock(@NotNull final List<MarketItemGroup> groups, 
+                                                           final boolean stockOnly) {
+    if (!stockOnly) {
+      return new ArrayList<>(groups);
+    }
+    return groups.stream()
+            .filter(group -> {
+              // Check if any shop in the group has stock/space
+              return group.getShops().stream().anyMatch(shop -> {
+                if (shop.isUnlimited()) return true;
+                if (shop.isSelling()) {
+                  return shop.getRemainingStock() > 0;
+                } else {
+                  return shop.getRemainingSpace() > 0;
+                }
+              });
+            })
+            .toList();
   }
   
   /**
@@ -258,15 +302,18 @@ public final class MarketUtils {
    * @param filterMode The filter mode
    * @param sortMode The sort mode
    * @param searchQuery The search query (can be null)
+   * @param stockOnly Whether to only show shops with stock/space
    * @return Processed list of shops
    */
   @NotNull
   public static List<Shop> processShops(@NotNull final List<Shop> shops,
                                          @NotNull final BrowseFilterMode filterMode,
                                          @NotNull final BrowseSortMode sortMode,
-                                         @Nullable final String searchQuery) {
+                                         @Nullable final String searchQuery,
+                                         final boolean stockOnly) {
     List<Shop> result = new ArrayList<>(shops);
     result = filterShops(result, filterMode);
+    result = filterByStock(result, stockOnly);
     result = searchShops(result, searchQuery);
     result = sortShops(result, sortMode);
     return result;
@@ -278,15 +325,18 @@ public final class MarketUtils {
    * @param filterMode The filter mode
    * @param sortMode The sort mode
    * @param searchQuery The search query (can be null)
+   * @param stockOnly Whether to only show groups with stock/space
    * @return Processed list of item groups
    */
   @NotNull
   public static List<MarketItemGroup> processGroups(@NotNull final List<Shop> shops,
                                                      @NotNull final BrowseFilterMode filterMode,
                                                      @NotNull final BrowseSortMode sortMode,
-                                                     @Nullable final String searchQuery) {
+                                                     @Nullable final String searchQuery,
+                                                     final boolean stockOnly) {
     // First filter shops, then group them
     List<Shop> filteredShops = filterShops(shops, filterMode);
+    filteredShops = filterByStock(filteredShops, stockOnly);
     filteredShops = searchShops(filteredShops, searchQuery);
     
     // Group the filtered shops

@@ -38,12 +38,7 @@ public enum BrowseFilterMode {
   /**
    * Show only selling shops (shops that sell to players)
    */
-  SELLING("selling", "gui.browse.filter.selling"),
-  
-  /**
-   * Show only shops with stock available
-   */
-  IN_STOCK("in-stock", "gui.browse.filter.in-stock");
+  SELLING("selling", "gui.browse.filter.selling");
   
   private final String id;
   private final String translationKey;

@@ -21,15 +21,18 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.common.util.CommonUtil;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
+import com.ghostchu.quickshop.menu.shared.GuiChatAction;
 import net.kyori.adventure.text.Component;
 import net.tnemc.item.AbstractItemStack;
 import net.tnemc.item.bukkit.BukkitItemStack;
-import net.tnemc.menu.core.PlayerInstancePage;
+import net.tnemc.menu.core.Page;
 import net.tnemc.menu.core.builder.IconBuilder;
 import net.tnemc.menu.core.callbacks.page.PageOpenCallback;
+import net.tnemc.menu.core.compatibility.MenuPlayer;
 import net.tnemc.menu.core.icon.action.impl.DataAction;
 import net.tnemc.menu.core.icon.action.impl.RunnableAction;
 import net.tnemc.menu.core.icon.action.impl.SwitchPageAction;
+import net.tnemc.menu.core.manager.MenuManager;
 import net.tnemc.menu.core.viewer.MenuViewer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -44,8 +47,10 @@ import java.util.UUID;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_FILTER;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_SEARCH;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_SORT;
+import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_STOCK_ONLY;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SELECTED_ITEM_SHOPS;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOPS_DATA;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.guiMessage;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOPS_PAGE;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOP_LIST_PAGE;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
@@ -72,7 +77,7 @@ public class GroupedItemPage {
     if (viewerOpt.isEmpty()) return;
     
     final MenuViewer viewer = viewerOpt.get();
-    if (!(callback.getPage() instanceof final PlayerInstancePage playerPage)) return;
+    final Page menuPage = callback.getPage();
 
     final Optional<Object> shopsData = viewer.findData(SHOPS_DATA);
     final UUID id = viewer.uuid();
@@ -80,13 +85,15 @@ public class GroupedItemPage {
     
     if (shopsData.isEmpty() || player == null) return;
 
-    playerPage.getIcons(id).clear();
+    menuPage.getIcons().clear();
 
     // Load GUI configuration
     final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("browse");
     final GuiConfig.IconConfig borderConfig = menuConfig != null ? menuConfig.getIcon("border") : null;
+    final GuiConfig.IconConfig searchConfig = menuConfig != null ? menuConfig.getIcon("search") : null;
     final GuiConfig.IconConfig sortConfig = menuConfig != null ? menuConfig.getIcon("sort") : null;
     final GuiConfig.IconConfig filterConfig = menuConfig != null ? menuConfig.getIcon("filter") : null;
+    final GuiConfig.IconConfig stockConfig = menuConfig != null ? menuConfig.getIcon("stock-filter") : null;
     final GuiConfig.IconConfig prevPageConfig = menuConfig != null ? menuConfig.getIcon("previous-page") : null;
     final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
     final GuiConfig.IconConfig pageInfoConfig = menuConfig != null ? menuConfig.getIcon("page-info") : null;
@@ -98,13 +105,14 @@ public class GroupedItemPage {
     final BrowseSortMode sortMode = (BrowseSortMode) viewer.dataOrDefault(BROWSE_SORT, BrowseSortMode.PRICE_ASC);
     final BrowseFilterMode filterMode = (BrowseFilterMode) viewer.dataOrDefault(BROWSE_FILTER, BrowseFilterMode.ALL);
     final String searchQuery = (String) viewer.dataOrDefault(BROWSE_SEARCH, "");
+    final boolean stockOnly = (Boolean) viewer.dataOrDefault(BROWSE_STOCK_ONLY, false);
     final int page = (Integer) viewer.dataOrDefault(SHOPS_PAGE, 1);
 
     @SuppressWarnings("unchecked")
     final List<Shop> allShops = (ArrayList<Shop>) shopsData.get();
 
     // Process shops into groups with current filters/sort/search
-    final List<MarketItemGroup> groups = MarketUtils.processGroups(allShops, filterMode, sortMode, searchQuery);
+    final List<MarketItemGroup> groups = MarketUtils.processGroups(allShops, filterMode, sortMode, searchQuery, stockOnly);
 
     // Calculate pagination (same pattern as MainPage)
     final int offset = 9;
@@ -119,17 +127,54 @@ public class GroupedItemPage {
     final IconBuilder borderBuilder = new IconBuilder(QuickShop.getInstance().stack().of(borderMaterial, 1));
     final List<Integer> borderRows = borderConfig != null ? borderConfig.getRows() : List.of(1, 6);
     for (final int row : borderRows) {
-      playerPage.setRow(id, row, borderBuilder);
+      menuPage.setRow(row, borderBuilder);
     }
 
     // === Control Row (Row 1) ===
     
-    // Sort button (slot 3)
+    // Search button (slot 0)
+    final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
+    final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 0;
+    final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
+    
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(searchMaterial, 1)
+            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Search: " + currentSearchDisplay + "</yellow>"))
+            .lore(List.of(
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Click to search for items</gray>"),
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Type 'clear' to reset</gray>")
+            )))
+            .withSlot(searchSlot)
+            .withActions(new GuiChatAction((message) -> {
+              // Handle clear command
+              final String searchValue = (message.equalsIgnoreCase("clear") || message.equals("0")) ? "" : message;
+              
+              // Create new viewer with ALL state preserved + new search value
+              // (TNMS removes viewer when inventory closes, so we recreate it)
+              final MenuViewer newViewer = new MenuViewer(id);
+              newViewer.addData(SHOPS_DATA, allShops);  // Captured from closure
+              newViewer.addData(BROWSE_SORT, sortMode);   // Captured from closure
+              newViewer.addData(BROWSE_FILTER, filterMode); // Captured from closure
+              newViewer.addData(BROWSE_STOCK_ONLY, stockOnly); // Captured from closure
+              newViewer.addData(BROWSE_SEARCH, searchValue); // New search value
+              newViewer.addData(SHOPS_PAGE, 1); // Reset to page 1 on new search
+              MenuManager.instance().addViewer(newViewer);
+              
+              // Manually reopen the menu
+              final Player p = Bukkit.getPlayer(id);
+              if (p != null && p.isOnline()) {
+                final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
+                menuPlayer.inventory().openMenu(menuPlayer, menuName, 1);  // Page 1 is GroupedItemPage
+              }
+              return true;
+            }, guiMessage("browse.enter-search"), false))  // false = don't auto-reopen, we handle it manually
+            .build());
+
+    // Sort button (slot 2)
     final String sortMaterial = sortConfig != null ? sortConfig.getMaterial() : "HOPPER";
-    final int sortSlot = sortConfig != null ? sortConfig.getSlot() : 3;
+    final int sortSlot = sortConfig != null ? sortConfig.getSlot() : 2;
     final BrowseSortMode nextSort = sortMode.next();
     
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(sortMaterial, 1)
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(sortMaterial, 1)
             .display(QuickShop.getInstance().platform().miniMessage().deserialize("<green>Sort: " + getSortDisplayName(sortMode) + "</green>"))
             .lore(List.of(
                     QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: " + getSortDisplayName(nextSort) + "</yellow>")
@@ -142,12 +187,12 @@ public class GroupedItemPage {
             )
             .build());
 
-    // Filter button (slot 5)
+    // Filter button (slot 4)
     final String filterMaterial = filterConfig != null ? filterConfig.getMaterial() : "PAPER";
-    final int filterSlot = filterConfig != null ? filterConfig.getSlot() : 5;
+    final int filterSlot = filterConfig != null ? filterConfig.getSlot() : 4;
     final BrowseFilterMode nextFilter = filterMode.next();
     
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(filterMaterial, 1)
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(filterMaterial, 1)
             .display(QuickShop.getInstance().platform().miniMessage().deserialize("<aqua>Filter: " + getFilterDisplayName(filterMode) + "</aqua>"))
             .lore(List.of(
                     QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: " + getFilterDisplayName(nextFilter) + "</yellow>")
@@ -160,11 +205,31 @@ public class GroupedItemPage {
             )
             .build());
 
+    // Stock filter toggle button (slot 6)
+    final String stockMaterial = stockConfig != null ? stockConfig.getMaterial() : "CHEST";
+    final int stockSlot = stockConfig != null ? stockConfig.getSlot() : 6;
+    final String stockStatus = stockOnly ? "<green>ON</green>" : "<red>OFF</red>";
+    
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(stockMaterial, 1)
+            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<gold>In Stock Only: " + stockStatus + "</gold>"))
+            .lore(List.of(
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Only show shops with</gray>"),
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>available stock/space</gray>"),
+                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click to toggle</yellow>")
+            )))
+            .withSlot(stockSlot)
+            .withActions(
+                    new DataAction(BROWSE_STOCK_ONLY, !stockOnly),
+                    new DataAction(SHOPS_PAGE, 1),
+                    new SwitchPageAction(menuName, 1)
+            )
+            .build());
+
     // Close button (slot 8)
     final String closeMaterial = closeConfig != null ? closeConfig.getMaterial() : "BARRIER";
     final int closeSlot = closeConfig != null ? closeConfig.getSlot() : 8;
     
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(closeMaterial, 1)
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(closeMaterial, 1)
             .display(getConfigDisplay(closeConfig, "<red>Close</red>")))
             .withSlot(closeSlot)
             .withActions(new RunnableAction((click) -> {
@@ -182,13 +247,13 @@ public class GroupedItemPage {
     final int pageInfoSlot = pageInfoConfig != null ? pageInfoConfig.getSlot() : 49;
     
     if (maxPages > 1) {
-      playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
+      menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
               .display(getConfigDisplay(prevPageConfig, "<white><< Previous Page</white>")))
               .withSlot(prevSlot)
               .withActions(new DataAction(SHOPS_PAGE, prev), new SwitchPageAction(menuName, 1))
               .build());
 
-      playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
+      menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
               .display(getConfigDisplay(nextPageConfig, "<white>Next Page >></white>")))
               .withSlot(nextSlot)
               .withActions(new DataAction(SHOPS_PAGE, next), new SwitchPageAction(menuName, 1))
@@ -196,7 +261,7 @@ public class GroupedItemPage {
     }
 
     // Page info
-    playerPage.addIcon(id, new IconBuilder(QuickShop.getInstance().stack().of(pageInfoMaterial, 1)
+    menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(pageInfoMaterial, 1)
             .display(getConfigDisplay(pageInfoConfig, "<yellow>Page {0}/{1}</yellow>", page, Math.max(1, maxPages))))
             .withSlot(pageInfoSlot)
             .build());
@@ -221,16 +286,19 @@ public class GroupedItemPage {
               .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>" + itemName + "</yellow>"))
               .lore(lore);
 
-      // Create a final reference for the lambda
-      final List<Shop> groupShops = group.getShops();
+      // Find ALL shops for this item type from unfiltered list (so filter can be changed on ShopListPage)
+      final ItemStack representativeItem = group.getRepresentativeItem();
+      final List<Shop> allShopsForItem = allShops.stream()
+              .filter(s -> s.getItem().getType() == representativeItem.getType())
+              .toList();
       
-      playerPage.addIcon(id, new IconBuilder(stack)
+      menuPage.addIcon(new IconBuilder(stack)
               .withSlot(listStartSlot + (i - start))
               .withActions(
                       new RunnableAction((click) -> {
                         final Optional<MenuViewer> v = click.player().viewer();
                         if (v.isPresent()) {
-                          v.get().addData(SELECTED_ITEM_SHOPS, new ArrayList<>(groupShops));
+                          v.get().addData(SELECTED_ITEM_SHOPS, new ArrayList<>(allShopsForItem));
                           v.get().addData(SHOP_LIST_PAGE, 1);
                         }
                       }),
@@ -256,7 +324,6 @@ public class GroupedItemPage {
       case ALL -> "All";
       case BUYING -> "Buying";
       case SELLING -> "Selling";
-      case IN_STOCK -> "In Stock";
     };
   }
 
@@ -284,7 +351,7 @@ public class GroupedItemPage {
     // Buying shops statistics
     if (group.hasBuyingShops()) {
       if (group.hasSellingShops()) lore.add(Component.empty());
-      lore.add(mm.deserialize("<orange>▲ Buying (" + group.getBuyingShopCount() + " shops)</orange>"));
+      lore.add(mm.deserialize("<#FFA500>▲ Buying (" + group.getBuyingShopCount() + " shops)</#FFA500>"));
       lore.add(mm.deserialize("<gray>  Price: <white>" + formatPrice(group.getBuyingMinPrice()) + 
               " - " + formatPrice(group.getBuyingMaxPrice()) + "</white></gray>"));
       lore.add(mm.deserialize("<gray>  Average: <yellow>" + formatPrice(group.getBuyingAvgPrice()) + "</yellow></gray>"));

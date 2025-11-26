@@ -124,7 +124,7 @@ public class GuiChatAction extends IconAction {
     // Note: We don't set AWAITING_CHAT status because our listener handles chat at LOWEST priority
     // and cancels the event before TNMS's listener can see it. Setting AWAITING_CHAT without
     // setting a chatHandler would cause NPE in TNMS's chat listener.
-    // Pass menu context for re-opening after input (null menu = no re-open)
+    // Pass menu context for re-opening after input
     GuiChatInputManager.getInstance().requestInput(
             bukkitPlayer, 
             handler, 
