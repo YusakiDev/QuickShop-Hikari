@@ -87,6 +87,9 @@ public class MainPage extends QuickShopPage {
       final Player player = Bukkit.getPlayer(id);
       if(shop.isPresent() && player != null) {
 
+        // Clear existing icons to ensure fresh data on reopen
+        open.getPage().getIcons().clear();
+
         // Load GUI configuration
         final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("keeper");
         final GuiConfig.IconConfig borderConfig = menuConfig != null ? menuConfig.getIcon("border") : null;
