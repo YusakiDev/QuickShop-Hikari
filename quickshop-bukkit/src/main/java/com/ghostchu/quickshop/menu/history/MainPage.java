@@ -198,14 +198,14 @@ public class MainPage {
 
         if(maxPages > 1) {
 
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("RED_WOOL", 1)
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("ARROW", 1)
                                                              .display(get(id, "gui.shared.previous-page"))
                                                              .lore(List.of(get(id, "history.shop.current-page", page))))
                                              .withActions(new DataAction(staffPageID, prev), new SwitchPageAction(menuName, menuPage))
                                              .withSlot(3)
                                              .build());
 
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("GREEN_WOOL", 1)
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("ARROW", 1)
                                                              .display(get(id, "gui.shared.next-page"))
                                                              .lore(List.of(get(id, "history.shop.current-page", page))))
                                              .withActions(new DataAction(staffPageID, next), new SwitchPageAction(menuName, menuPage))

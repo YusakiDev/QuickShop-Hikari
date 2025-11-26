@@ -20,6 +20,7 @@ package com.ghostchu.quickshop.menu.staff;
 import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermissionGroup;
+import com.ghostchu.quickshop.menu.config.GuiConfig;
 import net.kyori.adventure.text.Component;
 import net.tnemc.item.providers.SkullProfile;
 import net.tnemc.menu.core.builder.IconBuilder;
@@ -86,9 +87,28 @@ public class PlayerSelectionPage {
 
         callback.getPage().getIcons().clear();
         final UUID id = viewer.get().uuid();
+        
+        // Load GUI configuration for modern styling
+        final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("staff");
+        final GuiConfig.IconConfig borderConfig = menuConfig != null ? menuConfig.getIcon("border") : null;
+        final GuiConfig.IconConfig prevPageConfig = menuConfig != null ? menuConfig.getIcon("previous-page") : null;
+        final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
+        final GuiConfig.IconConfig backConfig = menuConfig != null ? menuConfig.getIcon("back") : null;
+        
+        // Set up borders from config (gray for modern look)
+        final String borderMaterial = borderConfig != null ? borderConfig.getMaterial() : "GRAY_STAINED_GLASS_PANE";
+        final IconBuilder borderBuilder = new IconBuilder(QuickShop.getInstance().stack().of(borderMaterial, 1));
+        final List<Integer> borderRows = borderConfig != null ? borderConfig.getRows() : List.of(2, 5);
+        for (final int row : borderRows) {
+          callback.getPage().setRow(row, borderBuilder);
+        }
+        
+        // Get list start slot from config
+        final int listStartSlot = menuConfig != null ? menuConfig.getSection().getInt("list-start-slot", 18) : 18;
+        
         final int offset = 9;
         final int page = (Integer)viewer.get().dataOrDefault(playerPageID, 1);
-        final int items = (menuRows - 1) * offset;
+        final int items = (menuRows - 2) * offset; // Adjusted for border rows
         final int start = ((page - 1) * offset);
 
         final int maxPages = (players.size() / items) + (((players.size() % items) > 0)? 1 : 0);
@@ -96,25 +116,34 @@ public class PlayerSelectionPage {
         final int prev = (page <= 1)? maxPages : page - 1;
         final int next = (page >= maxPages)? 1 : page + 1;
 
+        // Navigation icons from config (ARROW for modern look)
+        final String prevMaterial = prevPageConfig != null ? prevPageConfig.getMaterial() : "ARROW";
+        final int prevSlot = prevPageConfig != null ? prevPageConfig.getSlot() : 0;
+        final String nextMaterial = nextPageConfig != null ? nextPageConfig.getMaterial() : "ARROW";
+        final int nextSlot = nextPageConfig != null ? nextPageConfig.getSlot() : 8;
+
         if(maxPages > 1) {
 
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("RED_WOOL", 1)
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
                                                              .display(get(id, "gui.shared.previous-page")))
                                              .withActions(new DataAction(playerPageID, prev), new SwitchPageAction(menuName, menuPage))
-                                             .withSlot(0)
+                                             .withSlot(prevSlot)
                                              .build());
 
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("GREEN_WOOL", 1)
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
                                                              .display(get(id, "gui.shared.next-page")))
                                              .withActions(new DataAction(playerPageID, next), new SwitchPageAction(menuName, menuPage))
-                                             .withSlot(8)
+                                             .withSlot(nextSlot)
                                              .build());
         }
 
-        callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("BARRIER", 1)
+        // Back button from config (OAK_DOOR for "go back")
+        final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
+        final int backSlot = backConfig != null ? backConfig.getSlot() : 4;
+        callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
                                                            .display(get(id, "gui.shared.previous-menu")))
                                            .withActions(new SwitchPageAction(returnMenu, returnPage))
-                                           .withSlot(4)
+                                           .withSlot(backSlot)
                                            .build());
 
         int i = 0;
@@ -150,7 +179,7 @@ public class PlayerSelectionPage {
                                                shop.get().setPlayerGroup(uuid, BuiltInShopPermissionGroup.STAFF);
                                                QuickShop.getInstance().text().of(id, "shop-staff-added", name).send();
                                              }), new SwitchPageAction(returnMenu, returnPage))
-                                             .withSlot(offset + (i - start))
+                                             .withSlot(listStartSlot + (i - start))
                                              .build());
 
           i++;

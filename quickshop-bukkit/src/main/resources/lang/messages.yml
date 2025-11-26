@@ -1674,7 +1674,7 @@ addon:
       Unlimited: {6}
       Location: {7}
   bluemap:
-    markerset-title: QuickShop-Hikari Shops
+    markerset-title: Player Shops
     marker-name: '{0} @ {2} @ {3} for x{4} @ {5}'
     marker-description: |
       Name: {0}

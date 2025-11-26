@@ -21,6 +21,8 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermission;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermissionGroup;
+import com.ghostchu.quickshop.menu.config.GuiConfig;
+import com.ghostchu.quickshop.menu.shared.GuiChatAction;
 import com.ghostchu.quickshop.menu.shared.QuickShopPage;
 import com.ghostchu.quickshop.util.ShopUtil;
 import com.ghostchu.quickshop.util.Util;
@@ -29,9 +31,7 @@ import net.tnemc.menu.core.builder.IconBuilder;
 import net.tnemc.menu.core.callbacks.page.PageOpenCallback;
 import net.tnemc.menu.core.icon.action.ActionType;
 import net.tnemc.menu.core.icon.action.IconAction;
-import net.tnemc.menu.core.icon.action.impl.ChatAction;
 import net.tnemc.menu.core.icon.action.impl.DataAction;
-import net.tnemc.menu.core.icon.action.impl.RunnableAction;
 import net.tnemc.menu.core.icon.action.impl.SwitchPageAction;
 import net.tnemc.menu.core.viewer.MenuViewer;
 import org.bukkit.Bukkit;
@@ -46,7 +46,7 @@ import static com.ghostchu.quickshop.menu.ShopStaffMenu.STAFF_ADD;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.get;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getList;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getShop;
-import static com.ghostchu.quickshop.menu.shared.QuickShopPage.legacy;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.guiMessage;
 
 /**
  * PlayerSelectionMenu
@@ -96,9 +96,29 @@ public class StaffSelectionPage {
         final UUID id = viewer.get().uuid();
         final Player viewerPlayer = Bukkit.getPlayer(id);
         if(viewerPlayer != null) {
+          
+          // Load GUI configuration for modern styling
+          final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("staff");
+          final GuiConfig.IconConfig borderConfig = menuConfig != null ? menuConfig.getIcon("border") : null;
+          final GuiConfig.IconConfig prevPageConfig = menuConfig != null ? menuConfig.getIcon("previous-page") : null;
+          final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
+          final GuiConfig.IconConfig addStaffConfig = menuConfig != null ? menuConfig.getIcon("add-staff") : null;
+          final GuiConfig.IconConfig backConfig = menuConfig != null ? menuConfig.getIcon("back") : null;
+          
+          // Set up borders from config (gray for modern look)
+          final String borderMaterial = borderConfig != null ? borderConfig.getMaterial() : "GRAY_STAINED_GLASS_PANE";
+          final IconBuilder borderBuilder = new IconBuilder(QuickShop.getInstance().stack().of(borderMaterial, 1));
+          final List<Integer> borderRows = borderConfig != null ? borderConfig.getRows() : List.of(2, 5);
+          for (final int row : borderRows) {
+            callback.getPage().setRow(row, borderBuilder);
+          }
+          
+          // Get list start slot from config
+          final int listStartSlot = menuConfig != null ? menuConfig.getSection().getInt("list-start-slot", 18) : 18;
+          
           final int offset = 9;
           final int page = (Integer)viewer.get().dataOrDefault(staffPageID, 1);
-          final int items = (menuRows - 1) * offset;
+          final int items = (menuRows - 2) * offset; // Adjusted for border rows
           final int start = ((page - 1) * offset);
 
           final int maxPages = (staffs.size() / items) + (((staffs.size() % items) > 0)? 1 : 0);
@@ -106,31 +126,43 @@ public class StaffSelectionPage {
           final int prev = (page <= 1)? maxPages : page - 1;
           final int next = (page >= maxPages)? 1 : page + 1;
 
+          // Navigation icons from config (ARROW for modern look)
+          final String prevMaterial = prevPageConfig != null ? prevPageConfig.getMaterial() : "ARROW";
+          final int prevSlot = prevPageConfig != null ? prevPageConfig.getSlot() : 0;
+          final String nextMaterial = nextPageConfig != null ? nextPageConfig.getMaterial() : "ARROW";
+          final int nextSlot = nextPageConfig != null ? nextPageConfig.getSlot() : 8;
+
           if(maxPages > 1) {
 
-            callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("RED_WOOL", 1)
+            callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
                                                                .display(get(id, "gui.shared.previous-page")))
                                                .withActions(new DataAction(staffPageID, prev), new SwitchPageAction(menuName, menuPage))
-                                               .withSlot(0)
+                                               .withSlot(prevSlot)
                                                .build());
 
-            callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("GREEN_WOOL", 1)
+            callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
                                                                .display(get(id, "gui.shared.next-page")))
                                                .withActions(new DataAction(staffPageID, next), new SwitchPageAction(menuName, menuPage))
-                                               .withSlot(8)
+                                               .withSlot(nextSlot)
                                                .build());
           }
 
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("PLAYER_HEAD", 1)
+          // Add staff button from config (EMERALD for "add")
+          final String addStaffMaterial = addStaffConfig != null ? addStaffConfig.getMaterial() : "EMERALD";
+          final int addStaffSlot = addStaffConfig != null ? addStaffConfig.getSlot() : 2;
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(addStaffMaterial, 1)
                                                              .display(get(id, "gui.staff.add-staff")))
                                              .withActions(new SwitchPageAction(menuName, STAFF_ADD))
-                                             .withSlot(2)
+                                             .withSlot(addStaffSlot)
                                              .build());
 
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("BARRIER", 1)
+          // Back button from config (OAK_DOOR for "go back")
+          final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
+          final int backSlot = backConfig != null ? backConfig.getSlot() : 4;
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
                                                              .display(get(id, "gui.shared.previous-menu")))
                                              .withActions(new SwitchPageAction(returnMenu, returnPage))
-                                             .withSlot(4)
+                                             .withSlot(backSlot)
                                              .build());
 
           int i = 0;
@@ -162,43 +194,34 @@ public class StaffSelectionPage {
                                                                .display(get(id, "gui.staff.head-icon.display", name))
                                                                .lore(getList(id, iconLore))
                                                                .profile(profile))
-                                               .withActions(new ChatAction((message->{
-
-                                                 if(!message.getMessage().isEmpty()) {
-
-                                                   if(message.getMessage().equalsIgnoreCase("confirm")) {
-
+                                               .withActions(new GuiChatAction((message)->{
+                                                 if(!message.isEmpty()) {
+                                                   if(message.equalsIgnoreCase("confirm")) {
                                                      shop.get().setPlayerGroup(uuid, BuiltInShopPermissionGroup.EVERYONE);
                                                      QuickShop.getInstance().text().of(id, "shop-staff-deleted", name).send();
-                                                     viewer.get().close(QuickShop.getInstance().createMenuPlayer(viewerPlayer));
                                                      return true;
                                                    }
                                                    return true;
                                                  }
-                                                 message.getPlayer().message(legacy(id, "gui.staff.confirm-remove", name));
+                                                 viewerPlayer.sendMessage(guiMessage("staff.confirm-remove", name));
                                                  return false;
-                                               }), ActionType.LEFT_CLICK), new RunnableAction((run)->run.player().message(legacy(id, "gui.staff.confirm-remove", name)), ActionType.LEFT_CLICK))
-                                               .withActions(new ChatAction((message->{
-
-                                                 if(!message.getMessage().isEmpty()) {
-
-                                                   if(message.getMessage().equalsIgnoreCase("confirm")) {
+                                               }, guiMessage("staff.confirm-remove", name), true, ActionType.LEFT_CLICK))  // Reopen to refresh staff list
+                                               .withActions(new GuiChatAction((message)->{
+                                                 if(!message.isEmpty()) {
+                                                   if(message.equalsIgnoreCase("confirm")) {
                                                      if(shop.get().playerAuthorize(id, BuiltInShopPermission.OWNERSHIP_TRANSFER)) {
-
-                                                       Util.mainThreadRun(()->ShopUtil.transferRequest(id, uuid, name, shop.get()));
+                                                       Util.regionThread(shop.get().getLocation(), ()->ShopUtil.transferRequest(id, uuid, name, shop.get()));
                                                      } else {
-
                                                        QuickShop.getInstance().text().of(id, "no-permission").send();
                                                      }
-                                                     viewer.get().close(QuickShop.getInstance().createMenuPlayer(viewerPlayer));
                                                      return true;
                                                    }
                                                    return true;
                                                  }
-                                                 message.getPlayer().message(legacy(id, "gui.staff.confirm-transfer", name));
+                                                 viewerPlayer.sendMessage(guiMessage("staff.confirm-transfer", name));
                                                  return false;
-                                               }), ActionType.RIGHT_CLICK), new RunnableAction((run)->run.player().message(legacy(id, "gui.staff.confirm-transfer", name)), ActionType.RIGHT_CLICK))
-                                               .withSlot(offset + (i - start))
+                                               }, guiMessage("staff.confirm-transfer", name), false, ActionType.RIGHT_CLICK))  // Don't reopen after transfer
+                                               .withSlot(listStartSlot + (i - start))
                                                .build());
 
             i++;

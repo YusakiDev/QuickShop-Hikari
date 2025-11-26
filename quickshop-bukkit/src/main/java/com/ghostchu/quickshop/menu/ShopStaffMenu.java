@@ -17,6 +17,8 @@ package com.ghostchu.quickshop.menu;
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+import com.ghostchu.quickshop.QuickShop;
+import com.ghostchu.quickshop.menu.config.GuiConfig;
 import com.ghostchu.quickshop.menu.shared.QuickShopMenu;
 import com.ghostchu.quickshop.menu.staff.PlayerSelectionPage;
 import com.ghostchu.quickshop.menu.staff.StaffSelectionPage;
@@ -41,11 +43,13 @@ public class ShopStaffMenu extends QuickShopMenu {
 
   public ShopStaffMenu() {
 
-    this.rows = 6;
+    // Load rows from config or use default (5 rows for modern layout)
+    final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("staff");
+    this.rows = menuConfig != null ? menuConfig.getRows() : 5;
     this.name = "qs:staff";
-    this.title = "Shop Keeper";
+    this.title = "Shop Staff";
 
-    setOpen((open)->open.getMenu().setTitle(legacy(open.getPlayer().identifier(), "gui.keeper.title")));
+    setOpen((open)->open.getMenu().setTitle(legacy(open.getPlayer().identifier(), "gui.staff.title")));
 
     final Page main = new Page(STAFF_MAIN);
     final StaffSelectionPage staffSelection = new StaffSelectionPage("qs:keeper", this.name, STAFF_MAIN, KEEPER_MAIN, STAFF_PAGE, this.rows, "gui.staff.head-icon.lore");
