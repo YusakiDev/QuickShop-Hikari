@@ -39,10 +39,12 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
 import static com.ghostchu.quickshop.menu.ShopStaffMenu.STAFF_ADD;
+import static com.ghostchu.quickshop.menu.ShopStaffMenu.STAFF_SEARCH;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.get;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigLore;
@@ -92,7 +94,7 @@ public class StaffSelectionPage {
       final Optional<Shop> shop = getShop(viewer.get());
       if(shop.isPresent()) {
 
-        final List<UUID> staffs = shop.get().playersCanAuthorize(BuiltInShopPermissionGroup.STAFF);
+        final List<UUID> allStaffs = shop.get().playersCanAuthorize(BuiltInShopPermissionGroup.STAFF);
 
         callback.getPage().getIcons().clear();
         final UUID id = viewer.get().uuid();
@@ -106,6 +108,13 @@ public class StaffSelectionPage {
           final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
           final GuiConfig.IconConfig addStaffConfig = menuConfig != null ? menuConfig.getIcon("add-staff") : null;
           final GuiConfig.IconConfig backConfig = menuConfig != null ? menuConfig.getIcon("back") : null;
+          final GuiConfig.IconConfig searchConfig = menuConfig != null ? menuConfig.getIcon("search") : null;
+          
+          // Get search query from viewer data
+          final String searchQuery = (String) viewer.get().dataOrDefault(STAFF_SEARCH, "");
+          
+          // Filter staffs by search query
+          final List<UUID> staffs = filterStaffs(allStaffs, searchQuery);
           
           // Set up borders from config (gray for modern look)
           final String borderMaterial = borderConfig != null ? borderConfig.getMaterial() : "GRAY_STAINED_GLASS_PANE";
@@ -149,9 +158,42 @@ public class StaffSelectionPage {
                                                .build());
           }
 
+          // Search button - similar to browse page
+          final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
+          final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 1;
+          final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
+          
+          // Capture variables for closure
+          final String capturedSearchQuery = searchQuery;
+          final Shop capturedShop = shop.get();
+          
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(searchMaterial, 1)
+                                                             .display(getConfigDisplay(searchConfig, "<yellow>Search: {0}</yellow>", currentSearchDisplay))
+                                                             .lore(getConfigLore(searchConfig, currentSearchDisplay)))
+                                             .withSlot(searchSlot)
+                                             .withActions(new GuiChatAction((message) -> {
+                                               // Handle clear command
+                                               final String searchValue = (message.equalsIgnoreCase("clear") || message.equals("0")) ? "" : message;
+                                               
+                                               // Create new viewer with state preserved + new search value
+                                               final net.tnemc.menu.core.viewer.MenuViewer newViewer = new net.tnemc.menu.core.viewer.MenuViewer(id);
+                                               newViewer.addData("SHOP", capturedShop);
+                                               newViewer.addData(STAFF_SEARCH, searchValue);
+                                               newViewer.addData(staffPageID, 1); // Reset to page 1 on new search
+                                               net.tnemc.menu.core.manager.MenuManager.instance().addViewer(newViewer);
+                                               
+                                               // Reopen the menu
+                                               final Player p = Bukkit.getPlayer(id);
+                                               if (p != null) {
+                                                 net.tnemc.menu.core.manager.MenuManager.instance().open(menuName, p);
+                                               }
+                                               return true;
+                                             }, guiMessage("staff.enter-search"), false))
+                                             .build());
+
           // Add staff button from config (EMERALD for "add")
           final String addStaffMaterial = addStaffConfig != null ? addStaffConfig.getMaterial() : "EMERALD";
-          final int addStaffSlot = addStaffConfig != null ? addStaffConfig.getSlot() : 2;
+          final int addStaffSlot = addStaffConfig != null ? addStaffConfig.getSlot() : 3;
           callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(addStaffMaterial, 1)
                                                              .display(getConfigDisplay(addStaffConfig, "<green>Add Staff Member</green>"))
                                                              .lore(getConfigLore(addStaffConfig)))
@@ -161,7 +203,7 @@ public class StaffSelectionPage {
 
           // Back button from config (OAK_DOOR for "go back")
           final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
-          final int backSlot = backConfig != null ? backConfig.getSlot() : 4;
+          final int backSlot = backConfig != null ? backConfig.getSlot() : 5;
           callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
                                                              .display(getConfigDisplay(backConfig, "<white>Back to Shop</white>")))
                                              .withActions(new SwitchPageAction(returnMenu, returnPage))
@@ -232,5 +274,30 @@ public class StaffSelectionPage {
         }
       }
     }
+  }
+  
+  /**
+   * Filter staff UUIDs by search query (player name)
+   * @param staffs List of staff UUIDs
+   * @param searchQuery Search query to filter by
+   * @return Filtered list of staff UUIDs
+   */
+  private List<UUID> filterStaffs(final List<UUID> staffs, final String searchQuery) {
+    if (searchQuery == null || searchQuery.trim().isEmpty()) {
+      return staffs;
+    }
+    
+    final String query = searchQuery.toLowerCase(Locale.ROOT).trim();
+    
+    return staffs.stream()
+            .filter(uuid -> {
+              final Optional<OfflinePlayer> player = QuickShopPage.getPlayer(uuid);
+              if (player.isPresent() && player.get().getName() != null) {
+                return player.get().getName().toLowerCase(Locale.ROOT).contains(query);
+              }
+              // Also match UUID if name is not available
+              return uuid.toString().toLowerCase(Locale.ROOT).contains(query);
+            })
+            .toList();
   }
 }
