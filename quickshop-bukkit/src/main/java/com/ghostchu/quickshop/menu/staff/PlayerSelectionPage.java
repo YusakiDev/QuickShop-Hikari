@@ -21,7 +21,9 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermissionGroup;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
+import com.ghostchu.quickshop.menu.shared.GuiChatAction;
 import net.kyori.adventure.text.Component;
+import org.bukkit.entity.Player;
 import net.tnemc.item.providers.SkullProfile;
 import net.tnemc.menu.core.builder.IconBuilder;
 import net.tnemc.menu.core.callbacks.page.PageOpenCallback;
@@ -35,14 +37,17 @@ import org.bukkit.OfflinePlayer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.ghostchu.quickshop.menu.ShopStaffMenu.PLAYER_SEARCH;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.get;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigLore;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getList;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getShop;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.guiMessage;
 
 /**
  * PlayerSelectionMenu
@@ -85,7 +90,7 @@ public class PlayerSelectionPage {
       final Optional<Shop> shop = getShop(viewer.get());
       if(shop.isPresent()) {
 
-        final List<OfflinePlayer> players = sorted(shop.get());
+        final List<OfflinePlayer> allPlayers = sorted(shop.get());
 
         callback.getPage().getIcons().clear();
         final UUID id = viewer.get().uuid();
@@ -96,6 +101,13 @@ public class PlayerSelectionPage {
         final GuiConfig.IconConfig prevPageConfig = menuConfig != null ? menuConfig.getIcon("previous-page") : null;
         final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
         final GuiConfig.IconConfig backConfig = menuConfig != null ? menuConfig.getIcon("back") : null;
+        final GuiConfig.IconConfig searchConfig = menuConfig != null ? menuConfig.getIcon("search") : null;
+        
+        // Get search query from viewer data
+        final String searchQuery = (String) viewer.get().dataOrDefault(PLAYER_SEARCH, "");
+        
+        // Filter players by search query
+        final List<OfflinePlayer> players = filterPlayers(allPlayers, searchQuery);
         
         // Set up borders from config (gray for modern look)
         final String borderMaterial = borderConfig != null ? borderConfig.getMaterial() : "GRAY_STAINED_GLASS_PANE";
@@ -139,11 +151,44 @@ public class PlayerSelectionPage {
                                              .build());
         }
 
+        // Search button - similar to browse page
+        final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
+        final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 1;
+        final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
+        
+        // Capture variables for closure
+        final String capturedSearchQuery = searchQuery;
+        final Shop capturedShop = shop.get();
+        
+        callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(searchMaterial, 1)
+                                                           .display(getConfigDisplay(searchConfig, "<yellow>Search: {0}</yellow>", currentSearchDisplay))
+                                                           .lore(getConfigLore(searchConfig, currentSearchDisplay)))
+                                           .withSlot(searchSlot)
+                                           .withActions(new GuiChatAction((message) -> {
+                                             // Handle clear command
+                                             final String searchValue = (message.equalsIgnoreCase("clear") || message.equals("0")) ? "" : message;
+                                             
+                                             // Create new viewer with state preserved + new search value
+                                             final net.tnemc.menu.core.viewer.MenuViewer newViewer = new net.tnemc.menu.core.viewer.MenuViewer(id);
+                                             newViewer.addData("SHOP", capturedShop);
+                                             newViewer.addData(PLAYER_SEARCH, searchValue);
+                                             newViewer.addData(playerPageID, 1); // Reset to page 1 on new search
+                                             net.tnemc.menu.core.manager.MenuManager.instance().addViewer(newViewer);
+                                             
+                                             // Reopen the menu at the add staff page
+                                             final Player p = Bukkit.getPlayer(id);
+                                             if (p != null) {
+                                               net.tnemc.menu.core.manager.MenuManager.instance().open(menuName, menuPage, p);
+                                             }
+                                             return true;
+                                           }, guiMessage("staff.enter-search"), false))
+                                           .build());
+
         // Back button from config (OAK_DOOR for "go back")
         final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
-        final int backSlot = backConfig != null ? backConfig.getSlot() : 4;
+        final int backSlot = backConfig != null ? backConfig.getSlot() : 5;
         callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
-                                                           .display(getConfigDisplay(backConfig, "<white>Back to Shop</white>")))
+                                                           .display(getConfigDisplay(backConfig, "<white>Back to Staff List</white>")))
                                            .withActions(new SwitchPageAction(returnMenu, returnPage))
                                            .withSlot(backSlot)
                                            .build());
@@ -205,5 +250,29 @@ public class PlayerSelectionPage {
       sortedPlayers.add(player);
     }
     return sortedPlayers;
+  }
+  
+  /**
+   * Filter players by search query (player name)
+   * @param players List of players to filter
+   * @param searchQuery Search query to filter by
+   * @return Filtered list of players
+   */
+  private List<OfflinePlayer> filterPlayers(final List<OfflinePlayer> players, final String searchQuery) {
+    if (searchQuery == null || searchQuery.trim().isEmpty()) {
+      return players;
+    }
+    
+    final String query = searchQuery.toLowerCase(Locale.ROOT).trim();
+    
+    return players.stream()
+            .filter(player -> {
+              if (player.getName() != null) {
+                return player.getName().toLowerCase(Locale.ROOT).contains(query);
+              }
+              // Also match UUID if name is not available
+              return player.getUniqueId().toString().toLowerCase(Locale.ROOT).contains(query);
+            })
+            .toList();
   }
 }
