@@ -39,6 +39,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.get;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigLore;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getList;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getShop;
 
@@ -125,13 +127,13 @@ public class PlayerSelectionPage {
         if(maxPages > 1) {
 
           callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
-                                                             .display(get(id, "gui.shared.previous-page")))
+                                                             .display(getConfigDisplay(prevPageConfig, "<white><< Previous Page</white>")))
                                              .withActions(new DataAction(playerPageID, prev), new SwitchPageAction(menuName, menuPage))
                                              .withSlot(prevSlot)
                                              .build());
 
           callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
-                                                             .display(get(id, "gui.shared.next-page")))
+                                                             .display(getConfigDisplay(nextPageConfig, "<white>Next Page >></white>")))
                                              .withActions(new DataAction(playerPageID, next), new SwitchPageAction(menuName, menuPage))
                                              .withSlot(nextSlot)
                                              .build());
@@ -141,7 +143,7 @@ public class PlayerSelectionPage {
         final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
         final int backSlot = backConfig != null ? backConfig.getSlot() : 4;
         callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
-                                                           .display(get(id, "gui.shared.previous-menu")))
+                                                           .display(getConfigDisplay(backConfig, "<white>Back to Shop</white>")))
                                            .withActions(new SwitchPageAction(returnMenu, returnPage))
                                            .withSlot(backSlot)
                                            .build());
@@ -171,8 +173,8 @@ public class PlayerSelectionPage {
 
           final String name = (player.getName() != null)? player.getName() : uuid.toString();
           callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("PLAYER_HEAD", 1)
-                                                             .display(Component.text(name))
-                                                             .lore(getList(id, iconLore))
+                                                             .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>" + name + "</yellow>"))
+                                                             .lore(getConfigLore(null, name))
                                                              .profile(profile))
                                              .withActions(actions)
                                              .withActions(new RunnableAction((click)->{

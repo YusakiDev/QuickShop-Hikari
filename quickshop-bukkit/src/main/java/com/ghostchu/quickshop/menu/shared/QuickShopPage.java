@@ -142,6 +142,26 @@ public class QuickShopPage extends Page {
   }
 
   /**
+   * Gets an icon's display name from gui.yml as a Component with placeholder replacement.
+   * Parses MiniMessage formatting and replaces {0}, {1}, etc. placeholders.
+   *
+   * @param config The icon config
+   * @param defaultName The default name if not configured
+   * @param args Arguments to replace placeholders
+   * @return The parsed Component
+   */
+  @NotNull
+  public static Component getConfigDisplay(@Nullable final GuiConfig.IconConfig config, @NotNull final String defaultName, @Nullable final Object... args) {
+    String name = config != null && config.getName() != null ? config.getName() : defaultName;
+    if (args != null) {
+      for (int i = 0; i < args.length; i++) {
+        name = name.replace("{" + i + "}", args[i] != null ? args[i].toString() : "");
+      }
+    }
+    return QuickShop.getInstance().platform().miniMessage().deserialize(name);
+  }
+
+  /**
    * Gets an icon's lore from gui.yml as a list of Components.
    * Parses MiniMessage formatting and replaces {0}, {1}, etc. placeholders.
    *

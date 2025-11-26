@@ -143,11 +143,10 @@ public class MainPage extends QuickShopPage {
         final String customAmountMaterial = customAmountConfig != null ? customAmountConfig.getMaterial() : "NAME_TAG";
         final int customAmountSlot = customAmountConfig != null ? customAmountConfig.getSlot() : 43;
         
-        final String lore = (shop.get().isSelling())? "gui.trade.custom.lore-buy" : "gui.trade.custom.lore-sell";
         final String enterPath = (shop.get().isSelling())? "trade.enter-buy" : "trade.enter-sell";
         open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(customAmountMaterial, 1)
-                                                       .display(get(id, "gui.trade.custom.display"))
-                                                       .lore(getList(id, lore, amount, stockString)))
+                                                       .display(getConfigDisplay(customAmountConfig, "<bold><blue>Custom Order</blue></bold>"))
+                                                       .lore(getConfigLore(customAmountConfig, amount, stockString)))
                                        .withActions(new GuiChatAction((message)->{
                                          if(!message.isEmpty()) {
                                            try {
@@ -191,23 +190,19 @@ public class MainPage extends QuickShopPage {
         final List<Integer> configQuantities = quantityConfig != null ? quantityConfig.getQuantities() : List.of(1, 2, 4, 8, 16, 64);
         final List<Integer> configSlots = quantityConfig != null ? quantityConfig.getSlots() : List.of(37, 38, 39, 40, 41, 42);
 
-        final String display = (shop.get().isSelling())? "gui.trade.quantity.display-buy" : "gui.trade.quantity.display-sell";
-
         for(int i = 0; i < configQuantities.size() && i < configSlots.size(); i++) {
 
           final int quantity = configQuantities.get(i);
           final int slot = configSlots.get(i);
           final int adjustedAmount = (amount * quantity);
+          final String totalPrice = eco.format(BigDecimal.valueOf((quantity * shop.get().getPrice())),
+                                               shop.get().getLocation().getWorld().getName(),
+                                               shop.get().getCurrency());
+          final String displayText = (shop.get().isSelling())? "<green>Buy x" + adjustedAmount + "</green>" : "<gold>Sell x" + adjustedAmount + "</gold>";
 
           open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(quantityMaterial, Math.min(adjustedAmount, 64))
-                                                         .display(get(id, display, "x" + adjustedAmount))
-                                                         .lore(getList(id, "gui.trade.quantity.lore", eco.format(BigDecimal.valueOf(shop.get().getPrice()),
-                                                                                                                 shop.get().getLocation().getWorld().getName(),
-                                                                                                                 shop.get().getCurrency()),
-                                                                       amount,
-                                                                       eco.format(BigDecimal.valueOf((quantity * shop.get().getPrice())),
-                                                                                  shop.get().getLocation().getWorld().getName(),
-                                                                                  shop.get().getCurrency()))))
+                                                         .display(QuickShop.getInstance().platform().miniMessage().deserialize(displayText))
+                                                         .lore(getConfigLore(quantityConfig, totalPrice)))
                                          .withActions(new RunnableAction((click->{
                                            if(shop.get().isBuying()) {
 

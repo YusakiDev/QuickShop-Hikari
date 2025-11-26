@@ -19,6 +19,7 @@ package com.ghostchu.quickshop.menu;
 
 import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.menu.browse.MainPage;
+import com.ghostchu.quickshop.menu.config.GuiConfig;
 import net.tnemc.menu.core.Menu;
 import net.tnemc.menu.core.Page;
 import net.tnemc.menu.core.PlayerInstancePage;
@@ -36,7 +37,9 @@ public class ShopBrowseMenu extends Menu {
 
   public ShopBrowseMenu() {
 
-    this.rows = 6;
+    // Load rows from GUI config
+    final GuiConfig.MenuConfig menuConfig = QuickShop.getInstance().getGuiConfig().getMenuConfig("browse");
+    this.rows = menuConfig != null ? menuConfig.getRows() : 6;
     this.name = "qs:browse";
 
     setOpen((open)->open.getMenu().setTitle(QuickShop.getInstance().text().of(open.getPlayer().identifier(), "gui.browse.title").legacy()));
