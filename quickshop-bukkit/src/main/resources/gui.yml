@@ -9,16 +9,11 @@
 #   slot: The slot position in the inventory (0-53)
 #   amount: Item amount (default: 1)
 #
-# TEXT OPTIONS - You can use either:
-#   1. Language key reference: Use $ prefix to reference messages.yml keys
-#      Example: name: "$gui.trade.title"
-#      This allows translations and is recommended for multi-language servers
-#
-#   2. Direct inline text: Write MiniMessage formatted text directly
+# TEXT OPTIONS:
+#   1. Direct inline text: Write MiniMessage formatted text directly
 #      Example: name: "<bold><green>Buy Items</green></bold>"
-#      This is more intuitive for single-language servers or custom styling
 #
-#   3. Empty name: Use a single space " " for blank display names
+#   2. Empty name: Use a single space " " for blank display names
 #      Example: name: " "
 #
 # MiniMessage format reference: https://docs.advntr.dev/minimessage/format.html

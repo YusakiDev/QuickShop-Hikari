@@ -21,15 +21,12 @@ import com.ghostchu.quickshop.QuickShop;
 import net.kyori.adventure.text.Component;
 import net.tnemc.item.AbstractItemStack;
 import net.tnemc.menu.core.builder.IconBuilder;
-import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * GuiIconBuilder - Helper class to build icons from configuration
@@ -43,46 +40,32 @@ public class GuiIconBuilder {
    * Creates an AbstractItemStack from IconConfig
    *
    * @param config The icon configuration
-   * @param player The player UUID for language resolution
-   * @param args   Arguments for placeholder replacement in language strings
    * @return The configured AbstractItemStack
    */
   @NotNull
-  public static AbstractItemStack<?> createStack(@NotNull final GuiConfig.IconConfig config,
-                                                  @Nullable final UUID player,
-                                                  final Object... args) {
+  public static AbstractItemStack<?> createStack(@NotNull final GuiConfig.IconConfig config) {
     AbstractItemStack<?> stack = QuickShop.getInstance().stack()
             .of(config.getMaterial(), config.getAmount());
 
     // Set display name if configured
-    final String nameKey = config.getName();
-    if (nameKey != null && !nameKey.isEmpty()) {
-      if (nameKey.startsWith("$")) {
-        // Language key reference (e.g., "$gui.trade.title")
-        final String langKey = nameKey.substring(1);
-        stack = stack.display(getText(player, langKey, args));
-      } else if (nameKey.equals(" ")) {
+    final String name = config.getName();
+    if (name != null && !name.isEmpty()) {
+      if (name.equals(" ")) {
         // Empty name (single space = blank display name)
         stack = stack.display(Component.empty());
       } else {
         // Direct inline MiniMessage text (e.g., "<bold><green>Buy Items</green></bold>")
-        stack = stack.display(parseMiniMessage(nameKey));
+        stack = stack.display(parseMiniMessage(name));
       }
     }
 
     // Set lore if configured
-    final List<String> loreKeys = config.getLore();
-    if (!loreKeys.isEmpty()) {
+    final List<String> loreLines = config.getLore();
+    if (!loreLines.isEmpty()) {
       final List<Component> lore = new ArrayList<>();
-      for (final String loreKey : loreKeys) {
-        if (loreKey.startsWith("$")) {
-          // Language key reference (e.g., "$gui.trade.custom.lore-buy")
-          final String langKey = loreKey.substring(1);
-          lore.addAll(getTextList(player, langKey, args));
-        } else {
-          // Direct inline MiniMessage text (e.g., "<yellow>Click to buy</yellow>")
-          lore.add(parseMiniMessage(loreKey));
-        }
+      for (final String loreLine : loreLines) {
+        // Direct inline MiniMessage text (e.g., "<yellow>Click to buy</yellow>")
+        lore.add(parseMiniMessage(loreLine));
       }
       stack = stack.lore(lore);
     }
@@ -94,15 +77,11 @@ public class GuiIconBuilder {
    * Creates an IconBuilder from IconConfig with slot
    *
    * @param config The icon configuration
-   * @param player The player UUID for language resolution
-   * @param args   Arguments for placeholder replacement
    * @return The configured IconBuilder
    */
   @NotNull
-  public static IconBuilder createIconBuilder(@NotNull final GuiConfig.IconConfig config,
-                                               @Nullable final UUID player,
-                                               final Object... args) {
-    return new IconBuilder(createStack(config, player, args))
+  public static IconBuilder createIconBuilder(@NotNull final GuiConfig.IconConfig config) {
+    return new IconBuilder(createStack(config))
             .withSlot(config.getSlot());
   }
 
@@ -111,16 +90,12 @@ public class GuiIconBuilder {
    *
    * @param config The icon configuration
    * @param slot   The slot to use
-   * @param player The player UUID for language resolution
-   * @param args   Arguments for placeholder replacement
    * @return The configured IconBuilder
    */
   @NotNull
   public static IconBuilder createIconBuilder(@NotNull final GuiConfig.IconConfig config,
-                                               final int slot,
-                                               @Nullable final UUID player,
-                                               final Object... args) {
-    return new IconBuilder(createStack(config, player, args))
+                                               final int slot) {
+    return new IconBuilder(createStack(config))
             .withSlot(slot);
   }
 
@@ -207,24 +182,7 @@ public class GuiIconBuilder {
   }
 
   /**
-   * Gets a component from the language system
-   */
-  @NotNull
-  private static Component getText(@Nullable final UUID player, @NotNull final String key, final Object... args) {
-    return QuickShop.getInstance().text().of(player, key, args).forLocale();
-  }
-
-  /**
-   * Gets a list of components from the language system
-   */
-  @NotNull
-  private static List<Component> getTextList(@Nullable final UUID player, @NotNull final String key, final Object... args) {
-    return QuickShop.getInstance().text().ofList(player, key, args).forLocale();
-  }
-
-  /**
    * Parses a string as MiniMessage format directly.
-   * Use this for inline text in gui.yml that doesn't reference language keys.
    *
    * @param text The MiniMessage formatted text (e.g., "<bold><green>Buy Items</green></bold>")
    * @return The parsed Component
