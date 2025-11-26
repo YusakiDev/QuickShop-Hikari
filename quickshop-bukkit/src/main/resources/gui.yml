@@ -297,10 +297,10 @@ history:
   list-start-slot: 9
 
 # ===================
-# BROWSE MENU
+# BROWSE MENU (Market Browser)
 # ===================
 browse:
-  title: "<dark_aqua>Shop Browser</dark_aqua>"
+  title: "<dark_aqua>Market Browser</dark_aqua>"
   rows: 6
   
   border:
@@ -309,22 +309,66 @@ browse:
     custom-model-data: 0
     rows: [1, 6]
   
+  # Search button - opens chat input for item search
+  search:
+    material: ANVIL
+    name: "<yellow>Search Items</yellow>"
+    lore:
+      - "<gray>Click to search for items</gray>"
+      - "<gray>by name</gray>"
+    custom-model-data: 0
+    slot: 1
+  
+  # Sort button - cycles through sort options
+  sort:
+    material: HOPPER
+    name: "<green>Sort</green>"
+    lore:
+      - "<gray>Change how items are sorted</gray>"
+    custom-model-data: 0
+    slot: 3
+  
+  # Filter button - cycles through filter options
+  filter:
+    material: PAPER
+    name: "<aqua>Filter</aqua>"
+    lore:
+      - "<gray>Filter shops by type</gray>"
+    custom-model-data: 0
+    slot: 5
+  
+  # Close button
+  close:
+    material: BARRIER
+    name: "<red>Close</red>"
+    custom-model-data: 0
+    slot: 8
+  
+  # Back button (for shop list page)
+  back:
+    material: OAK_DOOR
+    name: "<white>Back to Market</white>"
+    custom-model-data: 0
+    slot: 0
+  
+  # Pagination controls (bottom row)
   previous-page:
     material: ARROW
     name: "<white><< Previous Page</white>"
     custom-model-data: 0
-    slot: 3
+    slot: 48
   
   next-page:
     material: ARROW
     name: "<white>Next Page >></white>"
     custom-model-data: 0
-    slot: 5
+    slot: 50
   
   page-info:
     material: BOOK
+    name: "<yellow>Page {0}/{1}</yellow>"
     custom-model-data: 0
-    slot: 4
+    slot: 49
   
   list-start-slot: 9
 
