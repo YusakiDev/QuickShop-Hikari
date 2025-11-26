@@ -138,11 +138,8 @@ public class GroupedItemPage {
     final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(searchMaterial, 1)
-            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Search: " + currentSearchDisplay + "</yellow>"))
-            .lore(List.of(
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Click to search for items</gray>"),
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Type 'clear' to reset</gray>")
-            )))
+            .display(getConfigDisplay(searchConfig, "<yellow>Search: {0}</yellow>", currentSearchDisplay))
+            .lore(getConfigLore(searchConfig, currentSearchDisplay)))
             .withSlot(searchSlot)
             .withActions(new GuiChatAction((message) -> {
               // Handle clear command
@@ -175,10 +172,8 @@ public class GroupedItemPage {
     final BrowseSortMode nextSort = sortMode.next();
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(sortMaterial, 1)
-            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<green>Sort: " + getSortDisplayName(sortMode) + "</green>"))
-            .lore(List.of(
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: " + getSortDisplayName(nextSort) + "</yellow>")
-            )))
+            .display(getConfigDisplay(sortConfig, "<green>Sort: {0}</green>", getSortDisplayName(sortMode)))
+            .lore(getConfigLore(sortConfig, getSortDisplayName(nextSort))))
             .withSlot(sortSlot)
             .withActions(
                     new DataAction(BROWSE_SORT, nextSort),
@@ -188,15 +183,13 @@ public class GroupedItemPage {
             .build());
 
     // Filter button (slot 4)
-    final String filterMaterial = filterConfig != null ? filterConfig.getMaterial() : "PAPER";
+    final String filterMaterial = filterConfig != null ? filterConfig.getMaterial() : "NAME_TAG";
     final int filterSlot = filterConfig != null ? filterConfig.getSlot() : 4;
     final BrowseFilterMode nextFilter = filterMode.next();
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(filterMaterial, 1)
-            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<aqua>Filter: " + getFilterDisplayName(filterMode) + "</aqua>"))
-            .lore(List.of(
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click: " + getFilterDisplayName(nextFilter) + "</yellow>")
-            )))
+            .display(getConfigDisplay(filterConfig, "<aqua>Filter: {0}</aqua>", getFilterDisplayName(filterMode)))
+            .lore(getConfigLore(filterConfig, getFilterDisplayName(nextFilter))))
             .withSlot(filterSlot)
             .withActions(
                     new DataAction(BROWSE_FILTER, nextFilter),
@@ -208,15 +201,11 @@ public class GroupedItemPage {
     // Stock filter toggle button (slot 6)
     final String stockMaterial = stockConfig != null ? stockConfig.getMaterial() : "CHEST";
     final int stockSlot = stockConfig != null ? stockConfig.getSlot() : 6;
-    final String stockStatus = stockOnly ? "<green>ON</green>" : "<red>OFF</red>";
+    final String stockStatus = stockOnly ? "ON" : "OFF";
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(stockMaterial, 1)
-            .display(QuickShop.getInstance().platform().miniMessage().deserialize("<gold>In Stock Only: " + stockStatus + "</gold>"))
-            .lore(List.of(
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Only show shops with</gray>"),
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<gray>available stock/space</gray>"),
-                    QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click to toggle</yellow>")
-            )))
+            .display(getConfigDisplay(stockConfig, "<gold>In Stock Only: {0}</gold>", stockStatus))
+            .lore(getConfigLore(stockConfig)))
             .withSlot(stockSlot)
             .withActions(
                     new DataAction(BROWSE_STOCK_ONLY, !stockOnly),
