@@ -433,6 +433,8 @@ messages:
   
   # Staff menu messages
   staff:
+    # Shown when player clicks "Search" button
+    enter-search: "<yellow>Enter a player name to search. Type '<white>clear</white>' to reset.</yellow>"
     # Shown when player left-clicks a staff member to remove them
     # {0} = staff member name
     confirm-remove: "<yellow>Type '<white>confirm</white>' to remove <red>{0}</red> as staff. Type anything else to cancel.</yellow>"
