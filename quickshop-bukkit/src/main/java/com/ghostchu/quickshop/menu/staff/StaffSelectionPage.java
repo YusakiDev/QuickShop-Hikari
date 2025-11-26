@@ -184,8 +184,9 @@ public class StaffSelectionPage {
                                                
                                                // Reopen the menu
                                                final Player p = Bukkit.getPlayer(id);
-                                               if (p != null) {
-                                                 net.tnemc.menu.core.manager.MenuManager.instance().open(menuName, p);
+                                               if (p != null && p.isOnline()) {
+                                                 final net.tnemc.menu.core.compatibility.MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
+                                                 menuPlayer.inventory().openMenu(menuPlayer, menuName, menuPage);
                                                }
                                                return true;
                                              }, guiMessage("staff.enter-search"), false))
