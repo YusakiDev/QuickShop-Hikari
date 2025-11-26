@@ -39,6 +39,8 @@ public class ShopStaffMenu extends QuickShopMenu {
 
   public static final String STAFF_PAGE = "STAFF_SELECTION_PAGE";
   public static final String PLAYER_PAGE = "PAGE_SELECTION_PAGE";
+  public static final String STAFF_SEARCH = "STAFF_SEARCH";
+  public static final String PLAYER_SEARCH = "PLAYER_SEARCH";
 
 
   public ShopStaffMenu() {
