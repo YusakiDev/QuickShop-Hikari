@@ -101,6 +101,7 @@ public class PlayerSelectionPage {
         final GuiConfig.IconConfig borderConfig = menuConfig != null ? menuConfig.getIcon("border") : null;
         final GuiConfig.IconConfig prevPageConfig = menuConfig != null ? menuConfig.getIcon("previous-page") : null;
         final GuiConfig.IconConfig nextPageConfig = menuConfig != null ? menuConfig.getIcon("next-page") : null;
+        final GuiConfig.IconConfig pageInfoConfig = menuConfig != null ? menuConfig.getIcon("page-info") : null;
         final GuiConfig.IconConfig backConfig = menuConfig != null ? menuConfig.getIcon("back") : null;
         final GuiConfig.IconConfig searchConfig = menuConfig != null ? menuConfig.getIcon("search") : null;
         
@@ -110,16 +111,16 @@ public class PlayerSelectionPage {
         // Filter players by search query
         final List<OfflinePlayer> players = filterPlayers(allPlayers, searchQuery);
         
-        // Set up borders from config (gray for modern look)
+        // Set up borders from config (rows 1 and 6 like browse page)
         final String borderMaterial = borderConfig != null ? borderConfig.getMaterial() : "GRAY_STAINED_GLASS_PANE";
         final IconBuilder borderBuilder = new IconBuilder(QuickShop.getInstance().stack().of(borderMaterial, 1));
-        final List<Integer> borderRows = borderConfig != null ? borderConfig.getRows() : List.of(2, 5);
+        final List<Integer> borderRows = borderConfig != null ? borderConfig.getRows() : List.of(1, 6);
         for (final int row : borderRows) {
           callback.getPage().setRow(row, borderBuilder);
         }
         
-        // Get list start slot from config
-        final int listStartSlot = menuConfig != null ? menuConfig.getSection().getInt("list-start-slot", 18) : 18;
+        // Get list start slot from config (slot 9 = row 2 like browse page)
+        final int listStartSlot = menuConfig != null ? menuConfig.getSection().getInt("list-start-slot", 9) : 9;
         
         final int offset = 9;
         final int page = (Integer)viewer.get().dataOrDefault(playerPageID, 1);
@@ -131,30 +132,11 @@ public class PlayerSelectionPage {
         final int prev = (page <= 1)? maxPages : page - 1;
         final int next = (page >= maxPages)? 1 : page + 1;
 
-        // Navigation icons from config (ARROW for modern look)
-        final String prevMaterial = prevPageConfig != null ? prevPageConfig.getMaterial() : "ARROW";
-        final int prevSlot = prevPageConfig != null ? prevPageConfig.getSlot() : 0;
-        final String nextMaterial = nextPageConfig != null ? nextPageConfig.getMaterial() : "ARROW";
-        final int nextSlot = nextPageConfig != null ? nextPageConfig.getSlot() : 8;
-
-        if(maxPages > 1) {
-
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
-                                                             .display(getConfigDisplay(prevPageConfig, "<white><< Previous Page</white>")))
-                                             .withActions(new DataAction(playerPageID, prev), new SwitchPageAction(menuName, menuPage))
-                                             .withSlot(prevSlot)
-                                             .build());
-
-          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
-                                                             .display(getConfigDisplay(nextPageConfig, "<white>Next Page >></white>")))
-                                             .withActions(new DataAction(playerPageID, next), new SwitchPageAction(menuName, menuPage))
-                                             .withSlot(nextSlot)
-                                             .build());
-        }
-
-        // Search button - similar to browse page
+        // === Control Row (Row 1) ===
+        
+        // Search button (slot 0) - same as browse page
         final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
-        final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 1;
+        final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 0;
         final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
         
         // Capture variables for closure
@@ -185,13 +167,41 @@ public class PlayerSelectionPage {
                                            }, guiMessage("staff.enter-search"), false))
                                            .build());
 
-        // Back button from config (OAK_DOOR for "go back")
+        // Back button (slot 8 - right side like browse close button)
         final String backMaterial = backConfig != null ? backConfig.getMaterial() : "OAK_DOOR";
-        final int backSlot = backConfig != null ? backConfig.getSlot() : 5;
+        final int backSlot = backConfig != null ? backConfig.getSlot() : 8;
         callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(backMaterial, 1)
                                                            .display(getConfigDisplay(backConfig, "<white>Back to Staff List</white>")))
                                            .withActions(new SwitchPageAction(returnMenu, returnPage))
                                            .withSlot(backSlot)
+                                           .build());
+        
+        // === Pagination Row (Bottom - Row 6) ===
+        final String prevMaterial = prevPageConfig != null ? prevPageConfig.getMaterial() : "ARROW";
+        final int prevSlot = prevPageConfig != null ? prevPageConfig.getSlot() : 48;
+        final String nextMaterial = nextPageConfig != null ? nextPageConfig.getMaterial() : "ARROW";
+        final int nextSlot = nextPageConfig != null ? nextPageConfig.getSlot() : 50;
+        final String pageInfoMaterial = pageInfoConfig != null ? pageInfoConfig.getMaterial() : "BOOK";
+        final int pageInfoSlot = pageInfoConfig != null ? pageInfoConfig.getSlot() : 49;
+
+        if(maxPages > 1) {
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(prevMaterial, 1)
+                                                             .display(getConfigDisplay(prevPageConfig, "<white><< Previous Page</white>")))
+                                             .withActions(new DataAction(playerPageID, prev), new SwitchPageAction(menuName, menuPage))
+                                             .withSlot(prevSlot)
+                                             .build());
+
+          callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(nextMaterial, 1)
+                                                             .display(getConfigDisplay(nextPageConfig, "<white>Next Page >></white>")))
+                                             .withActions(new DataAction(playerPageID, next), new SwitchPageAction(menuName, menuPage))
+                                             .withSlot(nextSlot)
+                                             .build());
+        }
+
+        // Page info (always show)
+        callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(pageInfoMaterial, 1)
+                                                           .display(getConfigDisplay(pageInfoConfig, "<yellow>Page {0}/{1}</yellow>", page, Math.max(1, maxPages))))
+                                           .withSlot(pageInfoSlot)
                                            .build());
 
         int i = 0;

@@ -189,20 +189,15 @@ keeper:
 # ===================
 staff:
   title: "<dark_aqua>Staff Management</dark_aqua>"
-  rows: 5
+  rows: 6
   
+  # Row 1 has borders in empty slots (buttons override border at their slots)
+  # Row 6 is the pagination/control row at bottom
   border:
     material: GRAY_STAINED_GLASS_PANE
     name: " "
     custom-model-data: 0
-    rows: [2, 5]  # Separator and bottom
-  
-  # Previous page button - ARROW for navigation
-  previous-page:
-    material: ARROW
-    name: "<white><< Previous Page</white>"
-    custom-model-data: 0
-    slot: 0
+    rows: [1, 6]
   
   # Search button - opens chat input for player search
   # {0} = current search query or "None"
@@ -213,7 +208,7 @@ staff:
       - "<gray>Click to search for players</gray>"
       - "<gray>Type 'clear' to reset</gray>"
     custom-model-data: 0
-    slot: 1
+    slot: 0
   
   # Add staff button - EMERALD (green = add)
   add-staff:
@@ -223,24 +218,36 @@ staff:
       - "<gray>Click to add a new</gray>"
       - "<gray>staff member to your shop.</gray>"
     custom-model-data: 0
-    slot: 3
+    slot: 4
   
   # Back button - OAK_DOOR for "go back"
   back:
     material: OAK_DOOR
     name: "<white>Back to Shop</white>"
     custom-model-data: 0
-    slot: 5
+    slot: 8
   
-  # Next page button
+  # Pagination controls (bottom row)
+  previous-page:
+    material: ARROW
+    name: "<white><< Previous Page</white>"
+    custom-model-data: 0
+    slot: 48
+  
   next-page:
     material: ARROW
     name: "<white>Next Page >></white>"
     custom-model-data: 0
-    slot: 8
+    slot: 50
   
-  # Staff list starts at row 3 (slot 18+)
-  list-start-slot: 18
+  page-info:
+    material: BOOK
+    name: "<yellow>Page {0}/{1}</yellow>"
+    custom-model-data: 0
+    slot: 49
+  
+  # Staff list starts at row 2 (slot 9+)
+  list-start-slot: 9
 
 # ===================
 # HISTORY MENU
