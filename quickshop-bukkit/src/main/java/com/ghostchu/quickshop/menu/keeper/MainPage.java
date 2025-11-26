@@ -113,7 +113,8 @@ public class MainPage extends QuickShopPage {
         final int shopItemSlot = shopItemConfig != null ? shopItemConfig.getSlot() : 4;
         open.getPage().addIcon(new IconBuilder(new BukkitItemStack().of(shopItem)).withSlot(shopItemSlot).build());
 
-        final Object priceObj = viewer.get().dataOrDefault("SHOP_PRICE", shop.get().getPrice());
+        // Always read price directly from shop to get the latest value
+        final double currentPrice = shop.get().getPrice();
 
         // Change price icon from config (GOLD_NUGGET for "price")
         final String changePriceMaterial = changePriceConfig != null ? changePriceConfig.getMaterial() : "GOLD_NUGGET";
@@ -123,18 +124,23 @@ public class MainPage extends QuickShopPage {
            || QuickShop.getInstance().perm().hasPermission(player, "quickshop.other.price")) {
           open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(changePriceMaterial, 1)
                                                          .display(getConfigDisplay(changePriceConfig, "<bold><green>Change Price</green></bold>"))
-                                                         .lore(getConfigLore(changePriceConfig, priceObj)))
+                                                         .lore(getConfigLore(changePriceConfig, currentPrice)))
                                          .withActions(new GuiChatAction((message)->{
                                            if(!message.isEmpty()) {
                                              try {
                                                final BigDecimal price = new BigDecimal(message);
-                                               viewer.get().addData("SHOP_PRICE", price.doubleValue());
-                                               Util.regionThread(shop.get().getLocation(), ()->ShopUtil.setPrice(QuickShop.getInstance(), QUserImpl.createFullFilled(player), price.doubleValue(), shop.get()));
+                                               // Update price and reopen menu in the same region thread to ensure price is updated before GUI shows
+                                               Util.regionThread(shop.get().getLocation(), ()->{
+                                                 ShopUtil.setPrice(QuickShop.getInstance(), QUserImpl.createFullFilled(player), price.doubleValue(), shop.get());
+                                                 // Reopen menu after price is set
+                                                 final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
+                                                 menuPlayer.inventory().openMenu(menuPlayer, "qs:keeper", KEEPER_MAIN);
+                                               });
                                                return true;
                                              } catch(final NumberFormatException ignore) { }
                                            }
                                            return true;
-                                         }, guiMessage("keeper.enter-price")))
+                                         }, guiMessage("keeper.enter-price"), false))  // false = don't auto-reopen, we handle it manually
                                          .withSlot(changePriceSlot).build());
         }
 
