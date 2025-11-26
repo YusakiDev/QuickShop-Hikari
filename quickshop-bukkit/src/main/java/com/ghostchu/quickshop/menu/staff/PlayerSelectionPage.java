@@ -41,6 +41,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.ghostchu.quickshop.menu.ShopKeeperMenu.SHOP_DATA_ID;
 import static com.ghostchu.quickshop.menu.ShopStaffMenu.PLAYER_SEARCH;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.get;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
@@ -157,8 +158,7 @@ public class PlayerSelectionPage {
         final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
         
         // Capture variables for closure
-        final String capturedSearchQuery = searchQuery;
-        final Shop capturedShop = shop.get();
+        final Long capturedShopId = shop.get().getShopId();
         
         callback.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(searchMaterial, 1)
                                                            .display(getConfigDisplay(searchConfig, "<yellow>Search: {0}</yellow>", currentSearchDisplay))
@@ -170,7 +170,7 @@ public class PlayerSelectionPage {
                                              
                                              // Create new viewer with state preserved + new search value
                                              final net.tnemc.menu.core.viewer.MenuViewer newViewer = new net.tnemc.menu.core.viewer.MenuViewer(id);
-                                             newViewer.addData("SHOP", capturedShop);
+                                             newViewer.addData(SHOP_DATA_ID, capturedShopId);  // Use shop ID like other menus
                                              newViewer.addData(PLAYER_SEARCH, searchValue);
                                              newViewer.addData(playerPageID, 1); // Reset to page 1 on new search
                                              net.tnemc.menu.core.manager.MenuManager.instance().addViewer(newViewer);
