@@ -52,6 +52,7 @@ import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SELECTED_ITEM_SHOPS;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOPS_PAGE;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOP_LIST_PAGE;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigLore;
 
 /**
  * ShopListPage - Shows all shops for a specific item type

@@ -50,10 +50,11 @@ import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_SORT;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.BROWSE_STOCK_ONLY;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SELECTED_ITEM_SHOPS;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOPS_DATA;
-import static com.ghostchu.quickshop.menu.shared.QuickShopPage.guiMessage;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOPS_PAGE;
 import static com.ghostchu.quickshop.menu.ShopBrowseMenu.SHOP_LIST_PAGE;
 import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigDisplay;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.getConfigLore;
+import static com.ghostchu.quickshop.menu.shared.QuickShopPage.guiMessage;
 
 /**
  * GroupedItemPage - Market overview page showing items grouped by type
