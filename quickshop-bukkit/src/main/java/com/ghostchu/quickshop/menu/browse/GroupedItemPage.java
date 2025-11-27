@@ -21,7 +21,9 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.common.util.CommonUtil;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
+import com.ghostchu.quickshop.menu.shared.ClearSearchAction;
 import com.ghostchu.quickshop.menu.shared.GuiChatAction;
+import net.tnemc.menu.core.icon.action.ActionType;
 import net.kyori.adventure.text.Component;
 import net.tnemc.item.AbstractItemStack;
 import net.tnemc.item.bukkit.BukkitItemStack;
@@ -133,7 +135,7 @@ public class GroupedItemPage {
 
     // === Control Row (Row 1) ===
     
-    // Search button (slot 0)
+    // Search button (slot 0) - Left-click to search, Right-click to clear
     final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
     final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 0;
     final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
@@ -164,20 +166,20 @@ public class GroupedItemPage {
                 menuPlayer.inventory().openMenu(menuPlayer, menuName, 1);  // Page 1 is GroupedItemPage
               }
               return true;
-            }, guiMessage("browse.enter-search"), false))  // false = don't auto-reopen, we handle it manually
+            }, guiMessage("browse.enter-search"), false, ActionType.LEFT_CLICK))  // Left-click for search input
+            .withActions(new ClearSearchAction(BROWSE_SEARCH, SHOPS_PAGE, menuName, 1))  // Right-click to clear
             .build());
 
     // Sort button (slot 2)
     final String sortMaterial = sortConfig != null ? sortConfig.getMaterial() : "HOPPER";
     final int sortSlot = sortConfig != null ? sortConfig.getSlot() : 2;
-    final BrowseSortMode nextSort = sortMode.next();
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(sortMaterial, 1)
             .display(getConfigDisplay(sortConfig, "<green>Sort: {0}</green>", getSortDisplayName(sortMode)))
-            .lore(getConfigLore(sortConfig, getSortDisplayName(nextSort))))
+            .lore(getConfigLore(sortConfig)))
             .withSlot(sortSlot)
             .withActions(
-                    new DataAction(BROWSE_SORT, nextSort),
+                    new DataAction(BROWSE_SORT, sortMode.next()),
                     new DataAction(SHOPS_PAGE, 1),
                     new SwitchPageAction(menuName, 1)
             )
@@ -186,14 +188,13 @@ public class GroupedItemPage {
     // Filter button (slot 4)
     final String filterMaterial = filterConfig != null ? filterConfig.getMaterial() : "NAME_TAG";
     final int filterSlot = filterConfig != null ? filterConfig.getSlot() : 4;
-    final BrowseFilterMode nextFilter = filterMode.next();
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(filterMaterial, 1)
             .display(getConfigDisplay(filterConfig, "<aqua>Filter: {0}</aqua>", getFilterDisplayName(filterMode)))
-            .lore(getConfigLore(filterConfig, getFilterDisplayName(nextFilter))))
+            .lore(getConfigLore(filterConfig)))
             .withSlot(filterSlot)
             .withActions(
-                    new DataAction(BROWSE_FILTER, nextFilter),
+                    new DataAction(BROWSE_FILTER, filterMode.next()),
                     new DataAction(SHOPS_PAGE, 1),
                     new SwitchPageAction(menuName, 1)
             )

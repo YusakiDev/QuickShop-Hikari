@@ -22,6 +22,7 @@ import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermission;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermissionGroup;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
+import com.ghostchu.quickshop.menu.shared.ClearSearchAction;
 import com.ghostchu.quickshop.menu.shared.GuiChatAction;
 import com.ghostchu.quickshop.menu.shared.QuickShopPage;
 import com.ghostchu.quickshop.util.ShopUtil;
@@ -141,7 +142,7 @@ public class StaffSelectionPage {
 
           // === Control Row (Row 1) ===
           
-          // Search button (slot 0) - same as browse page
+          // Search button (slot 0) - Left-click to search, Right-click to clear
           final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
           final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 0;
           final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
@@ -171,7 +172,8 @@ public class StaffSelectionPage {
                                                  menuPlayer.inventory().openMenu(menuPlayer, menuName, menuPage);
                                                }
                                                return true;
-                                             }, guiMessage("staff.enter-search"), false))
+                                             }, guiMessage("staff.enter-search"), false, ActionType.LEFT_CLICK))  // Left-click for search input
+                                             .withActions(new ClearSearchAction(STAFF_SEARCH, staffPageID, menuName, menuPage))  // Right-click to clear
                                              .build());
 
           // Add staff button (slot 4 - center)

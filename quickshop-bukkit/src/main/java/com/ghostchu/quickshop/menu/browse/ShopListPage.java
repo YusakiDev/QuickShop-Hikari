@@ -34,7 +34,6 @@ import net.tnemc.menu.core.icon.action.impl.SwitchPageAction;
 import net.tnemc.menu.core.viewer.MenuViewer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
@@ -156,39 +155,37 @@ public class ShopListPage {
       menuPage.addIcon(new IconBuilder(infoStack).withSlot(itemInfoSlot).build());
     }
 
-    // Sort toggle
+    // Sort button (slot 2)
     final String sortMaterial = sortConfig != null ? sortConfig.getMaterial() : "HOPPER";
     final int sortSlot = sortConfig != null ? sortConfig.getSlot() : 2;
-    final BrowseSortMode nextSort = sortMode.next();
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(sortMaterial, 1)
             .display(getConfigDisplay(sortConfig, "<green>Sort: {0}</green>", getSortDisplayName(sortMode)))
-            .lore(getConfigLore(sortConfig, getSortDisplayName(nextSort))))
+            .lore(getConfigLore(sortConfig)))
             .withSlot(sortSlot)
             .withActions(
-                    new DataAction(BROWSE_SORT, nextSort),
+                    new DataAction(BROWSE_SORT, sortMode.next()),
                     new DataAction(SHOP_LIST_PAGE, 1),
                     new SwitchPageAction(menuName, 2)
             )
             .build());
 
-    // Filter button - same as main browse page
+    // Filter button (slot 4)
     final GuiConfig.IconConfig filterConfig = menuConfig != null ? menuConfig.getIcon("filter") : null;
     final String filterMaterial = filterConfig != null ? filterConfig.getMaterial() : "NAME_TAG";
     final int filterSlot = filterConfig != null ? filterConfig.getSlot() : 4;
-    final BrowseFilterMode nextFilter = filterMode.next();
     
     menuPage.addIcon(new IconBuilder(QuickShop.getInstance().stack().of(filterMaterial, 1)
             .display(getConfigDisplay(filterConfig, "<aqua>Filter: {0}</aqua>", getFilterDisplayName(filterMode)))
-            .lore(getConfigLore(filterConfig, getFilterDisplayName(nextFilter))))
+            .lore(getConfigLore(filterConfig)))
             .withSlot(filterSlot)
             .withActions(
-                    new DataAction(BROWSE_FILTER, nextFilter),
+                    new DataAction(BROWSE_FILTER, filterMode.next()),
                     new DataAction(SHOP_LIST_PAGE, 1),
                     new SwitchPageAction(menuName, 2)
             )
             .build());
 
-    // Stock filter toggle button
+    // Stock filter toggle button (slot 6)
     final GuiConfig.IconConfig stockConfig = menuConfig != null ? menuConfig.getIcon("stock-filter") : null;
     final String stockMaterial = stockConfig != null ? stockConfig.getMaterial() : "CHEST";
     final int stockSlot = stockConfig != null ? stockConfig.getSlot() : 6;
@@ -247,7 +244,7 @@ public class ShopListPage {
             .build());
 
     // Check if player has teleport permission
-    final boolean canTeleport = QuickShop.getInstance().perm().hasPermission(player, "quickshop.find");
+    final boolean canTeleport = QuickShop.getInstance().perm().hasPermission(player, "quickshop.browse.teleport");
 
     // === Shop Grid ===
     int i = 0;
@@ -269,16 +266,10 @@ public class ShopListPage {
               .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>" + itemName + "</yellow>"))
               .lore(lore);
 
-      // Get teleport location - prefer sign location (never obstructed), fallback to shop location
-      final Location teleportTarget;
-      final List<Sign> signs = shop.getSigns();
-      if (!signs.isEmpty()) {
-        // Use first sign's location
-        teleportTarget = signs.getFirst().getLocation().clone().add(0.5, 0, 0.5);
-      } else {
-        // Fallback to shop location + 1 block up
-        teleportTarget = shop.getLocation().clone().add(0.5, 1, 0.5);
-      }
+      // Get teleport location - use shop location + 1 block up
+      // Note: We avoid calling shop.getSigns() here as it requires block access
+      // which can fail on Folia when the shop is in a different region
+      final Location teleportTarget = shop.getLocation().clone().add(0.5, 1, 0.5);
       
       final IconBuilder iconBuilder = new IconBuilder(stack)
               .withSlot(listStartSlot + (i - start));
@@ -312,7 +303,8 @@ public class ShopListPage {
   }
 
   /**
-   * Build the lore for an individual shop
+   * Build the lore for an individual shop.
+   * Note: Uses database cache for stock/space to avoid Folia cross-region block access issues.
    */
   private List<Component> buildShopLore(final Shop shop, final double avgPrice, final boolean canTeleport) {
     final List<Component> lore = new ArrayList<>();
@@ -331,13 +323,14 @@ public class ShopListPage {
     final String priceColor = getPriceColor(priceIndicator);
     lore.add(mm.deserialize("<gray>Price: " + priceColor + formatPrice(shop.getPrice()) + " " + priceIndicator + "</gray>"));
 
-    // Stock/Space
+    // Stock/Space - Use database cache to avoid Folia cross-region block access
+    // The shop may be in a different region than the player viewing the menu
     if (shop.isSelling()) {
-      final int stock = shop.isUnlimited() ? -1 : shop.getRemainingStock();
+      final int stock = getStockFromCache(shop);
       final String stockText = stock < 0 ? "Unlimited" : String.valueOf(stock);
       lore.add(mm.deserialize("<gray>Stock: <aqua>" + stockText + "</aqua></gray>"));
     } else {
-      final int space = shop.isUnlimited() ? -1 : shop.getRemainingSpace();
+      final int space = getSpaceFromCache(shop);
       final String spaceText = space < 0 ? "Unlimited" : String.valueOf(space);
       lore.add(mm.deserialize("<gray>Space: <aqua>" + spaceText + "</aqua></gray>"));
     }
@@ -435,5 +428,29 @@ public class ShopListPage {
   private String formatPrice(final double price) {
     return QuickShop.getInstance().getEconomyManager().provider()
             .format(BigDecimal.valueOf(price), null, null);
+  }
+
+  /**
+   * Get stock count from database cache.
+   * This avoids Folia cross-region block access issues by using cached data
+   * instead of directly accessing the shop's inventory.
+   *
+   * @param shop The shop to get stock for
+   * @return Stock count, or -1 for unlimited shops
+   */
+  private int getStockFromCache(final Shop shop) {
+    return MarketUtils.getStockFromCache(shop);
+  }
+
+  /**
+   * Get space count from database cache.
+   * This avoids Folia cross-region block access issues by using cached data
+   * instead of directly accessing the shop's inventory.
+   *
+   * @param shop The shop to get space for
+   * @return Space count, or -1 for unlimited shops
+   */
+  private int getSpaceFromCache(final Shop shop) {
+    return MarketUtils.getSpaceFromCache(shop);
   }
 }

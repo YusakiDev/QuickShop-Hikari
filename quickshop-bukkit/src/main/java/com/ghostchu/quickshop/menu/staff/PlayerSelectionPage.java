@@ -21,7 +21,9 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermissionGroup;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
+import com.ghostchu.quickshop.menu.shared.ClearSearchAction;
 import com.ghostchu.quickshop.menu.shared.GuiChatAction;
+import net.tnemc.menu.core.icon.action.ActionType;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import net.tnemc.item.providers.SkullProfile;
@@ -134,7 +136,7 @@ public class PlayerSelectionPage {
 
         // === Control Row (Row 1) ===
         
-        // Search button (slot 0) - same as browse page
+        // Search button (slot 0) - Left-click to search, Right-click to clear
         final String searchMaterial = searchConfig != null ? searchConfig.getMaterial() : "ANVIL";
         final int searchSlot = searchConfig != null ? searchConfig.getSlot() : 0;
         final String currentSearchDisplay = searchQuery.isEmpty() ? "None" : searchQuery;
@@ -164,7 +166,8 @@ public class PlayerSelectionPage {
                                                menuPlayerObj.inventory().openMenu(menuPlayerObj, menuName, menuPage);
                                              }
                                              return true;
-                                           }, guiMessage("staff.enter-search"), false))
+                                           }, guiMessage("staff.enter-search"), false, ActionType.LEFT_CLICK))  // Left-click for search input
+                                           .withActions(new ClearSearchAction(PLAYER_SEARCH, playerPageID, menuName, menuPage))  // Right-click to clear
                                            .build());
 
         // Back button (slot 8 - right side like browse close button)

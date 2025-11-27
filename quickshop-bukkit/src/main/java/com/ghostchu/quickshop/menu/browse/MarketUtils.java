@@ -20,6 +20,7 @@ package com.ghostchu.quickshop.menu.browse;
 import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.shop.ItemMatcher;
 import com.ghostchu.quickshop.api.shop.Shop;
+import com.ghostchu.quickshop.api.shop.cache.ShopInventoryCountCache;
 import com.ghostchu.quickshop.common.util.CommonUtil;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -102,7 +103,9 @@ public final class MarketUtils {
   }
   
   /**
-   * Filter shops to only show those with stock/space available
+   * Filter shops to only show those with stock/space available.
+   * Uses database cache to avoid Folia cross-region block access issues.
+   * 
    * @param shops List of shops to filter
    * @param stockOnly Whether to filter to stock only
    * @return Filtered list of shops
@@ -116,10 +119,11 @@ public final class MarketUtils {
             .filter(shop -> {
               if (shop.isUnlimited()) return true;
               // For selling shops, check stock; for buying shops, check space
+              // Use database cache to avoid Folia cross-region block access
               if (shop.isSelling()) {
-                return shop.getRemainingStock() > 0;
+                return getStockFromCache(shop) > 0;
               } else {
-                return shop.getRemainingSpace() > 0;
+                return getSpaceFromCache(shop) > 0;
               }
             })
             .toList();
@@ -146,7 +150,9 @@ public final class MarketUtils {
   }
   
   /**
-   * Filter item groups to only show those with stock/space available
+   * Filter item groups to only show those with stock/space available.
+   * Uses database cache to avoid Folia cross-region block access issues.
+   * 
    * @param groups List of groups to filter
    * @param stockOnly Whether to filter to stock only
    * @return Filtered list of groups
@@ -160,12 +166,13 @@ public final class MarketUtils {
     return groups.stream()
             .filter(group -> {
               // Check if any shop in the group has stock/space
+              // Use database cache to avoid Folia cross-region block access
               return group.getShops().stream().anyMatch(shop -> {
                 if (shop.isUnlimited()) return true;
                 if (shop.isSelling()) {
-                  return shop.getRemainingStock() > 0;
+                  return getStockFromCache(shop) > 0;
                 } else {
-                  return shop.getRemainingSpace() > 0;
+                  return getSpaceFromCache(shop) > 0;
                 }
               });
             })
@@ -173,7 +180,9 @@ public final class MarketUtils {
   }
   
   /**
-   * Sort shops based on sort mode
+   * Sort shops based on sort mode.
+   * Uses database cache for stock sorting to avoid Folia cross-region block access issues.
+   * 
    * @param shops List of shops to sort
    * @param sortMode The sort mode to apply
    * @return Sorted list of shops
@@ -186,7 +195,7 @@ public final class MarketUtils {
     switch (sortMode) {
       case PRICE_ASC -> sorted.sort(Comparator.comparingDouble(Shop::getPrice));
       case PRICE_DESC -> sorted.sort(Comparator.comparingDouble(Shop::getPrice).reversed());
-      case STOCK -> sorted.sort(Comparator.comparingInt(Shop::getRemainingStock).reversed());
+      case STOCK -> sorted.sort(Comparator.comparingInt(MarketUtils::getStockFromCache).reversed());
       case NAME -> sorted.sort(Comparator.comparing(shop -> 
               CommonUtil.prettifyText(shop.getItem().getType().name())));
     }
@@ -346,5 +355,53 @@ public final class MarketUtils {
     groups = sortGroups(groups, sortMode);
     
     return groups;
+  }
+
+  /**
+   * Get stock count from database cache.
+   * This avoids Folia cross-region block access issues by using cached data
+   * instead of directly accessing the shop's inventory.
+   *
+   * @param shop The shop to get stock for
+   * @return Stock count, or -1 for unlimited shops, 0 for errors/uninitialized
+   */
+  public static int getStockFromCache(@NotNull final Shop shop) {
+    if (shop.isUnlimited()) {
+      return -1;
+    }
+    try {
+      final ShopInventoryCountCache cache = QuickShop.getInstance().getShopManager()
+              .queryShopInventoryCacheInDatabase(shop).join();
+      final int stock = cache.getStock();
+      // Return stock if available, otherwise return 0 for uninitialized cache
+      return stock >= 0 ? stock : 0;
+    } catch (final Exception e) {
+      // Fallback to 0 if cache query fails
+      return 0;
+    }
+  }
+
+  /**
+   * Get space count from database cache.
+   * This avoids Folia cross-region block access issues by using cached data
+   * instead of directly accessing the shop's inventory.
+   *
+   * @param shop The shop to get space for
+   * @return Space count, or -1 for unlimited shops, 0 for errors/uninitialized
+   */
+  public static int getSpaceFromCache(@NotNull final Shop shop) {
+    if (shop.isUnlimited()) {
+      return -1;
+    }
+    try {
+      final ShopInventoryCountCache cache = QuickShop.getInstance().getShopManager()
+              .queryShopInventoryCacheInDatabase(shop).join();
+      final int space = cache.getSpace();
+      // Return space if available, otherwise return 0 for uninitialized cache
+      return space >= 0 ? space : 0;
+    } catch (final Exception e) {
+      // Fallback to 0 if cache query fails
+      return 0;
+    }
   }
 }

@@ -205,8 +205,8 @@ staff:
     material: ANVIL
     name: "<yellow>Search: {0}</yellow>"
     lore:
-      - "<gray>Click to search for players</gray>"
-      - "<gray>Type 'clear' to reset</gray>"
+      - "<gray>Left-click to search for players</gray>"
+      - "<gray>Right-click to clear search</gray>"
     custom-model-data: 0
     slot: 0
   
@@ -330,28 +330,28 @@ browse:
     material: ANVIL
     name: "<yellow>Search: {0}</yellow>"
     lore:
-      - "<gray>Click to search for items</gray>"
-      - "<gray>Type 'clear' to reset</gray>"
+      - "<gray>Left-click to search for items</gray>"
+      - "<gray>Right-click to clear search</gray>"
     custom-model-data: 0
     slot: 0
   
   # Sort button - cycles through sort options
-  # {0} = current sort mode (in name), next sort mode (in lore)
+  # {0} = current sort mode
   sort:
     material: HOPPER
     name: "<green>Sort: {0}</green>"
     lore:
-      - "<yellow>Click: {0}</yellow>"
+      - "<gray>Click to cycle</gray>"
     custom-model-data: 0
     slot: 2
   
   # Filter button - cycles through filter options
-  # {0} = current filter (in name), next filter (in lore)
+  # {0} = current filter
   filter:
     material: NAME_TAG
     name: "<aqua>Filter: {0}</aqua>"
     lore:
-      - "<yellow>Click: {0}</yellow>"
+      - "<gray>Click to cycle</gray>"
     custom-model-data: 0
     slot: 4
   
@@ -361,9 +361,7 @@ browse:
     material: CHEST
     name: "<gold>In Stock Only: {0}</gold>"
     lore:
-      - "<gray>Only show shops with</gray>"
-      - "<gray>available stock/space</gray>"
-      - "<yellow>Click to toggle</yellow>"
+      - "<gray>Click to toggle</gray>"
     custom-model-data: 0
     slot: 6
   
@@ -440,8 +438,8 @@ messages:
   
   # Staff menu messages
   staff:
-    # Shown when player clicks "Search" button
-    enter-search: "<yellow>Enter a player name to search. Type '<white>clear</white>' to reset.</yellow>"
+    # Shown when player left-clicks "Search" button (right-click clears instantly)
+    enter-search: "<yellow>Enter a player name to search. Type '<white>clear</white>' to reset, or right-click the search button.</yellow>"
     # Shown when player left-clicks a staff member to remove them
     # {0} = staff member name
     confirm-remove: "<yellow>Type '<white>confirm</white>' to remove <red>{0}</red> as staff. Type anything else to cancel.</yellow>"
@@ -465,5 +463,5 @@ messages:
   
   # Browse menu messages
   browse:
-    # Shown when player clicks "Search" button
-    enter-search: "<yellow>Enter an item name to search. Type '<white>clear</white>' to reset.</yellow>"
+    # Shown when player left-clicks "Search" button (right-click clears instantly)
+    enter-search: "<yellow>Enter an item name to search. Type '<white>clear</white>' to reset, or right-click the search button.</yellow>"

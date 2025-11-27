@@ -22,6 +22,7 @@ import com.ghostchu.quickshop.api.economy.EconomyProvider;
 import com.ghostchu.quickshop.api.shop.Info;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.api.shop.ShopAction;
+import com.ghostchu.quickshop.menu.browse.MarketUtils;
 import com.ghostchu.quickshop.menu.config.GuiConfig;
 import com.ghostchu.quickshop.menu.shared.GuiChatAction;
 import com.ghostchu.quickshop.menu.shared.PageSwitchWithCloseAction;
@@ -98,7 +99,8 @@ public class MainPage extends QuickShopPage {
 
         final ItemStack shopItem = shop.get().getItem();
         final int amount = shopItem.getAmount();
-        final int stock = (shop.get().isBuying())? -1 : shop.get().getRemainingStock();
+        // Use cache to avoid Folia cross-region block access issues
+        final int stock = (shop.get().isBuying())? -1 : MarketUtils.getStockFromCache(shop.get());
         final String stockString = (shop.get().isUnlimited())? "Unlimited" : stock + "";
         final String priceFormatted = eco.format(BigDecimal.valueOf(shop.get().getPrice()),
                 shop.get().getLocation().getWorld().getName(),

@@ -186,7 +186,7 @@ public class MainPage {
           shopLore.add(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Location: <white>" + location + "</white></gray>"));
           shopLore.add(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Type: <white>" + shop.shopType().identifier() + "</white></gray>"));
           shopLore.add(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Price: <white>" + priceFormatted + "</white></gray>"));
-          shopLore.add(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Stock: <white>" + shop.getRemainingStock() + "</white></gray>"));
+          shopLore.add(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Stock: <white>" + MarketUtils.getStockFromCache(shop) + "</white></gray>"));
           
           final AbstractItemStack<ItemStack> stack = new BukkitItemStack().of(shop.getItem().getType().key().asString(), shop.getShopStackingAmount())
                   .lore(shopLore);

@@ -89,7 +89,7 @@ public class MarketItemGroup {
       sellingAvgPrice = CommonUtil.avg(sellingPrices);
       sellingMedianPrice = CommonUtil.med(sellingPrices);
       sellingTotalStock = sellingShops.stream()
-              .mapToInt(shop -> Math.max(0, shop.getRemainingStock()))
+              .mapToInt(shop -> Math.max(0, MarketUtils.getStockFromCache(shop)))
               .sum();
     }
     
@@ -104,7 +104,7 @@ public class MarketItemGroup {
       buyingAvgPrice = CommonUtil.avg(buyingPrices);
       buyingMedianPrice = CommonUtil.med(buyingPrices);
       buyingTotalSpace = buyingShops.stream()
-              .mapToInt(shop -> Math.max(0, shop.getRemainingSpace()))
+              .mapToInt(shop -> Math.max(0, MarketUtils.getSpaceFromCache(shop)))
               .sum();
     }
   }
