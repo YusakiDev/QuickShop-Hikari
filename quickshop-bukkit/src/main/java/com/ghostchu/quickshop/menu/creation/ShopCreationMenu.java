@@ -60,6 +60,19 @@ public class ShopCreationMenu extends QuickShopMenu {
 
     setOpen((open)->open.getMenu().setTitle(legacy(open.getPlayer().identifier(), "gui.creation.title")));
 
+    // Return the price slot item to player when GUI closes
+    setClose((close)->{
+      final java.util.UUID pid = close.getPlayer().identifier();
+      final org.bukkit.entity.Player p = org.bukkit.Bukkit.getPlayer(pid);
+      if(p != null && p.getOpenInventory().getTopInventory().getSize() > ShopCreationPage.SLOT_PRICE_ITEM) {
+        final org.bukkit.inventory.ItemStack priceItem = p.getOpenInventory().getTopInventory().getItem(ShopCreationPage.SLOT_PRICE_ITEM);
+        if(priceItem != null && !priceItem.getType().isAir()) {
+          p.getOpenInventory().getTopInventory().setItem(ShopCreationPage.SLOT_PRICE_ITEM, null);
+          p.getInventory().addItem(priceItem);
+        }
+      }
+    });
+
     addPage(new ShopCreationPage());
   }
 }

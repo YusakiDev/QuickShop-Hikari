@@ -76,7 +76,7 @@ public class ShopCreationPage extends QuickShopPage {
   private static final int SLOT_SELL_ITEM = 12;
   private static final int SLOT_SELL_INC = 13;
   private static final int SLOT_PRICE_DEC = 15;
-  private static final int SLOT_PRICE_ITEM = 16;
+  static final int SLOT_PRICE_ITEM = 16;
   private static final int SLOT_PRICE_INC = 17;
   private static final int SLOT_CONFIRM = 22;
 
@@ -136,43 +136,14 @@ public class ShopCreationPage extends QuickShopPage {
     final Optional<Object> priceItemObj = viewer.findData(PRICE_ITEM);
     final int priceAmount = (Integer)viewer.findData(PRICE_AMOUNT).orElse(1);
 
+    // Price slot is a passthrough — player can place/remove items normally
+    open.getPage().addPassthroughSlot(SLOT_PRICE_ITEM);
+
     if(priceItemObj.isPresent()) {
+      // Price item already set — show it (but slot is still passthrough for swapping)
       final ItemStack priceItem = ((ItemStack)priceItemObj.get()).clone();
       priceItem.setAmount(priceAmount);
-      open.getPage().addIcon(new IconBuilder(new BukkitItemStack().of(priceItem)).withSlot(SLOT_PRICE_ITEM).build());
-    } else {
-      // Show a placeholder prompting the player to pick up an item and click this slot
-      open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("HOPPER", 1)
-                                                     .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click to set price item</yellow>"))
-                                                     .lore(Collections.singletonList(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Pick up an item from your inventory, then click here</gray>"))))
-                                     .withActions(new RunnableAction((click)->{
-                                       final Player p = Bukkit.getPlayer(id);
-                                       if(p == null) {
-                                         return;
-                                       }
-                                       final ItemStack cursor = p.getItemOnCursor();
-                                       if(cursor.getType().isAir()) {
-                                         p.sendMessage(guiMessage("creation.hold-item"));
-                                         return;
-                                       }
-                                       // Clone the cursor item as the price item
-                                       final ItemStack priceClone = cursor.clone();
-                                       final int amount = Math.max(1, cursor.getAmount());
-                                       priceClone.setAmount(1);
-                                       viewer.addData(PRICE_ITEM, priceClone);
-                                       viewer.addData(PRICE_AMOUNT, amount);
-
-                                       // Schedule everything to next tick — during the click event,
-                                       // Bukkit restores cursor state after handlers return
-                                       QuickShop.folia().getScheduler().runAtEntityLater(p, ()->{
-                                         // Now safe to clear cursor and reopen
-                                         p.setItemOnCursor(null);
-                                         p.getInventory().addItem(cursor);
-                                         final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
-                                         menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
-                                       }, 1);
-                                     }))
-                                     .withSlot(SLOT_PRICE_ITEM).build());
+      // Don't add as icon — let Bukkit handle the slot naturally
     }
 
     // --- Sell Amount [-] ---
@@ -246,31 +217,26 @@ public class ShopCreationPage extends QuickShopPage {
     }
 
     // --- Confirm Button ---
-    if(sellItemObj.isPresent() && priceItemObj.isPresent()) {
-      open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("LIME_CONCRETE", 1)
-                                                     .display(QuickShop.getInstance().platform().miniMessage().deserialize("<bold><green>Confirm</green></bold>"))
-                                                     .lore(Collections.singletonList(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Click to create the shop</gray>"))))
-                                     .withActions(new RunnableAction((click)->{
-                                       handleConfirm(viewer, player);
-                                     }))
-                                     .withSlot(SLOT_CONFIRM).build());
-    } else {
-      // Gray confirm button (disabled)
-      open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("GRAY_CONCRETE", 1)
-                                                     .display(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Confirm</gray>"))
-                                                     .lore(Collections.singletonList(QuickShop.getInstance().platform().miniMessage().deserialize("<red>Set both items first</red>"))))
-                                     .withSlot(SLOT_CONFIRM).build());
-    }
+    // Always show green confirm — price slot is passthrough, validated on click
+    open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("LIME_CONCRETE", 1)
+                                                   .display(QuickShop.getInstance().platform().miniMessage().deserialize("<bold><green>Confirm</green></bold>"))
+                                                   .lore(Collections.singletonList(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Click to create the shop</gray>"))))
+                                   .withActions(new RunnableAction((click)->{
+                                     handleConfirm(viewer, player);
+                                   }))
+                                   .withSlot(SLOT_CONFIRM).build());
   }
 
   private void handleConfirm(final MenuViewer viewer, final Player player) {
 
     final Optional<Object> sellItemObj = viewer.findData(SELL_ITEM);
-    final Optional<Object> priceItemObj = viewer.findData(PRICE_ITEM);
     final Optional<Object> locationObj = viewer.findData(SHOP_LOCATION);
     final Optional<Object> signBlockObj = viewer.findData(SIGN_BLOCK);
 
-    if(sellItemObj.isEmpty() || priceItemObj.isEmpty() || locationObj.isEmpty()) {
+    // Read price item directly from the GUI passthrough slot
+    final ItemStack priceSlotItem = player.getOpenInventory().getTopInventory().getItem(SLOT_PRICE_ITEM);
+
+    if(sellItemObj.isEmpty() || priceSlotItem == null || priceSlotItem.getType().isAir() || locationObj.isEmpty()) {
       QuickShop.getInstance().text().of(player, "shop-creation-failed").send();
       return;
     }
@@ -278,8 +244,7 @@ public class ShopCreationPage extends QuickShopPage {
     final ItemStack sellItem = ((ItemStack)sellItemObj.get()).clone();
     sellItem.setAmount((Integer)viewer.findData(SELL_AMOUNT).orElse(1));
 
-    final ItemStack priceItem = ((ItemStack)priceItemObj.get()).clone();
-    priceItem.setAmount((Integer)viewer.findData(PRICE_AMOUNT).orElse(1));
+    final ItemStack priceItem = priceSlotItem.clone();
 
     final Location location = (Location)locationObj.get();
     final Block signBlock = signBlockObj.isPresent()? (Block)signBlockObj.get() : null;
