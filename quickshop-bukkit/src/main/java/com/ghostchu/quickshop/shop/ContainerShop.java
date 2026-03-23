@@ -1478,7 +1478,7 @@ public class ContainerShop implements Shop, Reloadable {
             , shopType().id(),
                                saveExtraToYaml(), this.currency, this.disableDisplay,
                                this.taxAccount, inventoryWrapperProvider,
-                               saveToSymbolLink(), this.playerGroup);
+                               saveToSymbolLink(), this.playerGroup, null);
   }
 
   @Override

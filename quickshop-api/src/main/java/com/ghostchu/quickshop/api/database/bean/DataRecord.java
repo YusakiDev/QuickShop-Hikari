@@ -41,6 +41,9 @@ public interface DataRecord {
   double getPrice();
 
   @Nullable
+  String getPriceItem();
+
+  @Nullable
   QUser getTaxAccount();
 
   int getType();
