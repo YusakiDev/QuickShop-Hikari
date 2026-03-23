@@ -499,7 +499,7 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
                                                      SELLING_TYPE, new YamlConfiguration(), null, !plugin.getConfig().getBoolean("shop.display-default", true),
                                                      null, plugin.getJavaPlugin().getName(),
                                                      symbolLink,
-                                                     null, Collections.emptyMap(), new QSBenefitProvider());
+                                                     null, Collections.emptyMap(), new QSBenefitProvider(), null);
         createShop(shop, info.getSignBlock(), info.isBypassed());
       } else {
         plugin.text().of(p, "invalid-container").send();

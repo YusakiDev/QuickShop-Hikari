@@ -145,6 +145,9 @@ public class ContainerShop implements Shop, Reloadable {
   @NotNull
   private BenefitProvider benefit;
 
+  @Nullable
+  private ItemStack priceItem;
+
   //updating objects
   private final AtomicBoolean updatingAtomic = new AtomicBoolean(false);
   private volatile CompletableFuture<Void> inFlightUpdate;
@@ -180,13 +183,15 @@ public class ContainerShop implements Shop, Reloadable {
           @NotNull final String symbolLink,
           @Nullable final String shopName,
           @NotNull final Map<UUID, String> playerGroup,
-          @NotNull final BenefitProvider shopBenefit) {
+          @NotNull final BenefitProvider shopBenefit,
+          @Nullable final ItemStack priceItem) {
 
     this.shopId = shopId;
     this.shopName = shopName;
     this.location = location;
     this.price = price;
     this.benefit = shopBenefit;
+    this.priceItem = priceItem != null ? priceItem.clone() : null;
 
 
     // Upgrade the shop moderator
@@ -981,6 +986,9 @@ public class ContainerShop implements Shop, Reloadable {
       return getRemainingStock() > 0;
     }
     if(isBuying()) {
+      if(isBarter() && priceItem != null) {
+        return Util.countSpace(getInventory(), this.item) > 0;
+      }
       return getRemainingSpace() > 0;
     }
     if(isFrozen()) {
@@ -1017,6 +1025,18 @@ public class ContainerShop implements Shop, Reloadable {
   public boolean isDirty() {
 
     return this.dirty;
+  }
+
+  @Override
+  @Nullable
+  public ItemStack getPriceItem() {
+    return priceItem != null ? priceItem.clone() : null;
+  }
+
+  @Override
+  public void setPriceItem(@Nullable final ItemStack priceItem) {
+    this.priceItem = priceItem != null ? priceItem.clone() : null;
+    setDirty();
   }
 
   @Override
@@ -1478,7 +1498,8 @@ public class ContainerShop implements Shop, Reloadable {
             , shopType().id(),
                                saveExtraToYaml(), this.currency, this.disableDisplay,
                                this.taxAccount, inventoryWrapperProvider,
-                               saveToSymbolLink(), this.playerGroup, null);
+                               saveToSymbolLink(), this.playerGroup,
+                               priceItem != null ? java.util.Base64.getEncoder().encodeToString(priceItem.serializeAsBytes()) : null);
   }
 
   @Override

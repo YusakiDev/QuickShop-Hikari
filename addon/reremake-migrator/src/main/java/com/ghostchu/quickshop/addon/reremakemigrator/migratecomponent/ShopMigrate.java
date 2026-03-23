@@ -88,7 +88,8 @@ public class ShopMigrate extends AbstractMigrateComponent {
                 ((BukkitInventoryWrapperManager)getHikari().getInventoryWrapperManager()).mklink(reremakeShop.getLocation()),
                 null,
                 Collections.emptyMap(),
-                new QSBenefitProvider()
+                new QSBenefitProvider(),
+                null
         );
         migrateReremakeBanAddonData(reremakeShop, hikariRawShop);
         hikariRawShop.setDirty();

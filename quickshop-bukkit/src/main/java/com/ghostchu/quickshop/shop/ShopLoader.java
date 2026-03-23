@@ -173,6 +173,11 @@ public class ShopLoader implements SubPasteItem {
     final Location location = new Location(Bukkit.getWorld(infoRecord.getWorld()), x, y, z);
 
     final ItemStack stack = (rawInfo.getNewItem() == null)? rawInfo.getItem() : rawInfo.getNewItem();
+    ItemStack loadedPriceItem = null;
+    String priceItemData = dataRecord.getPriceItem();
+    if(priceItemData != null) {
+      loadedPriceItem = ItemStack.deserializeBytes(java.util.Base64.getDecoder().decode(priceItemData));
+    }
     try {
       shop = new ContainerShop(plugin,
                                infoRecord.getShopId(),
@@ -190,7 +195,8 @@ public class ShopLoader implements SubPasteItem {
                                rawInfo.getInvSymbolLink(),
                                rawInfo.getName(),
                                rawInfo.getPermissions(),
-                               rawInfo.getBenefits());
+                               rawInfo.getBenefits(),
+                               loadedPriceItem);
     } catch(final Exception e) {
       if(e instanceof IllegalStateException) {
         plugin.logger().warn("Failed to load the shop, skipping...", e);
