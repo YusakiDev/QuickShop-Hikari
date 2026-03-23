@@ -331,6 +331,66 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
       return false;
     }
 
+    // Barter trade: pay with items instead of currency
+    if(shop.isBarter()) {
+      final ItemStack priceItem = shop.getPriceItem();
+      final int totalPriceAmount = priceItem.getAmount() * amount;
+
+      // Check shop has enough price items to pay the buyer
+      final InventoryWrapper shopInventory = shop.getInventory();
+      if(shopInventory == null) {
+        plugin.text().of(buyer, "shop-transaction-failed", "Shop inventory not available").send();
+        return false;
+      }
+      final int shopPriceStock = Util.countItems(shopInventory, priceItem);
+      if(shopPriceStock < totalPriceAmount) {
+        plugin.text().of(buyer, "shop-stock-too-low", Component.text(shopPriceStock), Util.getItemStackName(priceItem)).send();
+        return false;
+      }
+
+      // Check buyer has space for incoming price items
+      final int buyerPriceSpace = Util.countSpace(buyerInventory, priceItem);
+      if(buyerPriceSpace < totalPriceAmount) {
+        plugin.text().of(buyer, "inventory-space-full", totalPriceAmount, buyerPriceSpace).send();
+        return false;
+      }
+
+      // Fire pre-purchase event with total=0 for barter
+      final ShopPurchaseEvent e = new ShopPurchaseEvent(shop, buyerQUser, buyerInventory, amount, 0.0);
+      if(Util.fireCancellableEvent(e)) {
+        plugin.text().of(buyer, "plugin-cancelled", e.getCancelReason()).send();
+        return false;
+      }
+
+      // Payment: transfer price items from shop to buyer
+      final SimpleInventoryTransaction paymentTxn = SimpleInventoryTransaction.builder()
+              .from(shopInventory)
+              .to(buyerInventory)
+              .item(priceItem)
+              .amount(totalPriceAmount)
+              .build();
+      if(!paymentTxn.commit()) {
+        plugin.text().of(buyer, "shop-transaction-failed", paymentTxn.getLastError()).send();
+        return false;
+      }
+
+      // Delivery: buyer gives shop items to shop
+      try {
+        shop.buy(buyerQUser, buyerInventory, buyer.getLocation(), amount);
+      } catch(final Exception shopError) {
+        plugin.logger().warn("Failed to process barter purchase, rolling back payment...", shopError);
+        paymentTxn.rollback(true);
+        plugin.text().of(buyer, "shop-transaction-failed", shopError.getMessage()).send();
+        return false;
+      }
+
+      sendSellSuccess(buyerQUser, shop, amount, 0.0, 0.0);
+      new ShopSuccessPurchaseEvent(shop, buyerQUser, buyerInventory, amount, 0.0, 0.0).callEvent();
+      shop.setSignText(plugin.text().findRelativeLanguages(buyer));
+      notifySold(buyerQUser, shop, amount, space);
+      return true;
+    }
+
     // Money handling
     // BUYING MODE  Shop Owner -> Player
     final TaxRates taxRates = taxManager.provider().calculateTax(shop, buyerQUser);
@@ -561,6 +621,75 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
     if(amount > pSpace) {
       plugin.text().of(seller, "not-enough-space", Component.text(pSpace)).send();
       return false;
+    }
+
+    // Barter trade: pay with items instead of currency
+    if(shop.isBarter()) {
+      final ItemStack priceItem = shop.getPriceItem();
+      final int totalPriceAmount = priceItem.getAmount() * amount;
+
+      // Check seller has enough price items to pay the shop
+      final int sellerPriceCount = Util.countItems(sellerInventory, priceItem);
+      if(sellerPriceCount < totalPriceAmount) {
+        plugin.text().of(seller, "you-dont-have-that-many-items", Component.text(sellerPriceCount), Util.getItemStackName(priceItem)).send();
+        return false;
+      }
+
+      // Check shop has space for incoming price items
+      final InventoryWrapper shopInventory = shop.getInventory();
+      if(shopInventory == null) {
+        plugin.text().of(seller, "shop-transaction-failed", "Shop inventory not available").send();
+        return false;
+      }
+      final int shopPriceSpace = Util.countSpace(shopInventory, priceItem);
+      if(shopPriceSpace < totalPriceAmount) {
+        plugin.text().of(seller, "shop-has-no-space", Component.text(shopPriceSpace), Util.getItemStackName(priceItem)).send();
+        return false;
+      }
+
+      // Fire pre-purchase event with total=0 for barter
+      final ShopPurchaseEvent e = new ShopPurchaseEvent(shop, sellerQUser, sellerInventory, amount, 0.0);
+      if(Util.fireCancellableEvent(e)) {
+        plugin.text().of(seller, "plugin-cancelled", e.getCancelReason()).send();
+        return false;
+      }
+
+      // Delivery first: shop gives items to seller
+      try {
+        shop.sell(sellerQUser, sellerInventory, seller.getLocation(), amount);
+      } catch(final Exception shopError) {
+        plugin.logger().warn("Failed to process barter sell delivery...", shopError);
+        plugin.text().of(seller, "shop-transaction-failed", shopError.getMessage()).send();
+        return false;
+      }
+
+      // Payment: transfer price items from seller to shop
+      final SimpleInventoryTransaction paymentTxn = SimpleInventoryTransaction.builder()
+              .from(sellerInventory)
+              .to(shopInventory)
+              .item(priceItem)
+              .amount(totalPriceAmount)
+              .build();
+      if(!paymentTxn.commit()) {
+        plugin.logger().warn("Failed to process barter sell payment, rolling back delivery...");
+        // Reverse the sell: give shop items back from seller to shop
+        final SimpleInventoryTransaction reverseTxn = SimpleInventoryTransaction.builder()
+                .from(sellerInventory)
+                .to(shopInventory)
+                .item(shop.getItem())
+                .amount(amount * shop.getItem().getAmount())
+                .build();
+        if(!reverseTxn.failSafeCommit()) {
+          plugin.logger().error("CRITICAL: Failed to rollback barter sell delivery! Items may be duplicated. Error: {}", reverseTxn.getLastError());
+        }
+        plugin.text().of(seller, "shop-transaction-failed", paymentTxn.getLastError()).send();
+        return false;
+      }
+
+      sendPurchaseSuccess(sellerQUser, shop, amount, 0.0, 0.0);
+      new ShopSuccessPurchaseEvent(shop, sellerQUser, sellerInventory, amount, 0.0, 0.0).callEvent();
+      shop.setSignText(plugin.text().findRelativeLanguages(seller));
+      return true;
     }
 
     final TaxRates taxRates = taxManager.provider().calculateTax(shop, sellerQUser);
