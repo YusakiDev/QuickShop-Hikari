@@ -72,6 +72,10 @@ public class EconomyFormatter implements Reloadable {
 
     Log.debug("Economy Provider null check: " + (plugin.getEconomyManager().provider() == null));
 
+    if(plugin.getEconomyManager().provider() == null) {
+      return getInternalFormat(n, currency);
+    }
+
     try {
       final String formatted = plugin.getEconomyManager().provider().format(BigDecimal.valueOf(n), world.getName(), currency);
       if(CommonUtil.isEmptyString(formatted)) {

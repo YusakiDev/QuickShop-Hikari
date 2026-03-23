@@ -32,6 +32,12 @@ public class SubCommand_Create implements CommandHandler<Player> {
   @Override
   public void onCommand(@NotNull final Player sender, @NotNull final String commandLabel, @NotNull final CommandParser parser) {
 
+    // On barter-only servers (no economy loaded), /qs create <price> is not supported
+    if(plugin.getEconomyManager().provider() == null && plugin.getConfig().getBoolean("barter.enabled", false)) {
+      plugin.text().of(sender, "barter-use-gui-to-create").send();
+      return;
+    }
+
     final BlockIterator bIt = new BlockIterator(sender, 10);
     ItemStack item;
     if(parser.getArgs().isEmpty()) {

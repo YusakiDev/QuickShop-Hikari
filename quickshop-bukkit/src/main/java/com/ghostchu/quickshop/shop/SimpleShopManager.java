@@ -867,76 +867,83 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
       }
     }
 
-    // Price limit checking
-    final PriceLimiterCheckResult priceCheckResult = this.priceLimiter.check(p, shop.getItem(), plugin.getCurrency(), shop.getPrice());
-    switch(priceCheckResult.getStatus()) {
-      case REACHED_PRICE_MIN_LIMIT ->
-              plugin.text().of(p, "price-too-cheap", Component.text((useDecFormat)? MsgUtil.decimalFormat(priceCheckResult.getMax()) : Double.toString(priceCheckResult.getMin()))).send();
-      case REACHED_PRICE_MAX_LIMIT ->
-              plugin.text().of(p, "price-too-high", Component.text((useDecFormat)? MsgUtil.decimalFormat(priceCheckResult.getMax()) : Double.toString(priceCheckResult.getMin()))).send();
-      case PRICE_RESTRICTED ->
-              plugin.text().of(p, "restricted-prices", Util.getItemStackName(shop.getItem()), Component.text(priceCheckResult.getMin()), Component.text(priceCheckResult.getMax())).send();
-      case NOT_VALID -> plugin.text().of(p, "not-a-number", shop.getPrice()).send();
-      case NOT_A_WHOLE_NUMBER -> plugin.text().of(p, "not-a-integer", shop.getPrice()).send();
-      case PASS -> {
+    // Price limit checking — barter shops use price=0.0 as a placeholder, skip limiter entirely
+    if(!shop.isBarter()) {
+      final PriceLimiterCheckResult priceCheckResult = this.priceLimiter.check(p, shop.getItem(), plugin.getCurrency(), shop.getPrice());
+      switch(priceCheckResult.getStatus()) {
+        case REACHED_PRICE_MIN_LIMIT ->
+                plugin.text().of(p, "price-too-cheap", Component.text((useDecFormat)? MsgUtil.decimalFormat(priceCheckResult.getMax()) : Double.toString(priceCheckResult.getMin()))).send();
+        case REACHED_PRICE_MAX_LIMIT ->
+                plugin.text().of(p, "price-too-high", Component.text((useDecFormat)? MsgUtil.decimalFormat(priceCheckResult.getMax()) : Double.toString(priceCheckResult.getMin()))).send();
+        case PRICE_RESTRICTED ->
+                plugin.text().of(p, "restricted-prices", Util.getItemStackName(shop.getItem()), Component.text(priceCheckResult.getMin()), Component.text(priceCheckResult.getMax())).send();
+        case NOT_VALID -> plugin.text().of(p, "not-a-number", shop.getPrice()).send();
+        case NOT_A_WHOLE_NUMBER -> plugin.text().of(p, "not-a-integer", shop.getPrice()).send();
+        case PASS -> finalizeShopCreation(p, shop, signBlock);
+      }
+    } else {
+      // Barter shop: price=0.0 is a valid placeholder, skip price limiter
+      finalizeShopCreation(p, shop, signBlock);
+    }
+  }
 
-        // Calling ShopCreateEvent
-        ShopCreateEvent event = new ShopCreateEvent(Phase.PRE_CANCELLABLE, shop, shop.getOwner(), shop.getLocation());
+  private void finalizeShopCreation(@NotNull final Player p, @NotNull final Shop shop, @Nullable final Block signBlock) {
 
-        if(event.callCancellableEvent()) {
+    // Calling ShopCreateEvent
+    ShopCreateEvent event = new ShopCreateEvent(Phase.PRE_CANCELLABLE, shop, shop.getOwner(), shop.getLocation());
 
-          plugin.text().of(p, "plugin-cancelled", event.getCancelReason()).send();
-          return;
-        }
-        // Handle create cost
-        // This must be called after the event has been called.
-        // Else, if the event is cancelled, they won't get their
-        // money back.
-        double createCost = shopCreateCost;
-        if(plugin.perm().hasPermission(p, "quickshop.bypasscreatefee")) {
-          createCost = 0;
-        }
-        if(createCost > 0) {
-          final QSEconomyTransaction economyTransaction = QSEconomyTransaction.builder().taxer(cacheTaxAccount).tax(BigDecimal.ZERO).from(QUserImpl.createFullFilled(p)).to(null).amount(BigDecimal.valueOf(createCost)).currency(plugin.getCurrency()).world(shop.getLocation().getWorld().getName()).build();
-          if(!economyTransaction.completable()) {
-            plugin.text().of(p, "you-cant-afford-a-new-shop", format(createCost, shop.getLocation().getWorld(), shop.getCurrency())).send();
-            return;
-          }
-          if(!economyTransaction.safeCommit()) {
-            plugin.text().of(p, "economy-transaction-failed", economyTransaction.lastError()).send();
-            plugin.logger().error("EconomyTransaction Failed, last error:{} ", economyTransaction.lastError());
-            plugin.logger().error("Tips: If you see any economy plugin name appears above, please don't ask QuickShop support. Contact with developer of economy plugin. QuickShop didn't process the transaction, we only receive the transaction result from your economy plugin.");
-            return;
-          }
-        }
+    if(event.callCancellableEvent()) {
 
-        // The shop about successfully created
-        if(!useShopLock) {
-          plugin.text().of(p, "shops-arent-locked").send();
-        }
-
-        // Shop info sign check
-        if(signBlock != null && autoSign) {
-          if(signBlock.getType().isAir() || signBlock.getType() == Material.WATER) {
-            final BlockState signState = this.makeShopSign(shop.getLocation().getBlock(), signBlock, null);
-            if(signState instanceof final Sign puttedSign) {
-              try {
-
-                shop.claimShopSign(puttedSign);
-              } catch(final Throwable ignored) {
-              }
-            }
-          }
-        }
-        addShopToLookupTable(shop);
-        registerShop(shop, true);
-        loadShop(shop);
-        shop.setSignText(plugin.getTextManager().findRelativeLanguages(p));
-
-        event = event.clone(Phase.MAIN);
-        event.callEvent();
+      plugin.text().of(p, "plugin-cancelled", event.getCancelReason()).send();
+      return;
+    }
+    // Handle create cost
+    // This must be called after the event has been called.
+    // Else, if the event is cancelled, they won't get their
+    // money back.
+    double createCost = shopCreateCost;
+    if(plugin.perm().hasPermission(p, "quickshop.bypasscreatefee")) {
+      createCost = 0;
+    }
+    if(createCost > 0) {
+      final QSEconomyTransaction economyTransaction = QSEconomyTransaction.builder().taxer(cacheTaxAccount).tax(BigDecimal.ZERO).from(QUserImpl.createFullFilled(p)).to(null).amount(BigDecimal.valueOf(createCost)).currency(plugin.getCurrency()).world(shop.getLocation().getWorld().getName()).build();
+      if(!economyTransaction.completable()) {
+        plugin.text().of(p, "you-cant-afford-a-new-shop", format(createCost, shop.getLocation().getWorld(), shop.getCurrency())).send();
+        return;
+      }
+      if(!economyTransaction.safeCommit()) {
+        plugin.text().of(p, "economy-transaction-failed", economyTransaction.lastError()).send();
+        plugin.logger().error("EconomyTransaction Failed, last error:{} ", economyTransaction.lastError());
+        plugin.logger().error("Tips: If you see any economy plugin name appears above, please don't ask QuickShop support. Contact with developer of economy plugin. QuickShop didn't process the transaction, we only receive the transaction result from your economy plugin.");
+        return;
       }
     }
+
+    // The shop about successfully created
+    if(!useShopLock) {
+      plugin.text().of(p, "shops-arent-locked").send();
+    }
+
+    // Shop info sign check
+    if(signBlock != null && autoSign) {
+      if(signBlock.getType().isAir() || signBlock.getType() == Material.WATER) {
+        final BlockState signState = this.makeShopSign(shop.getLocation().getBlock(), signBlock, null);
+        if(signState instanceof final Sign puttedSign) {
+          try {
+
+            shop.claimShopSign(puttedSign);
+          } catch(final Throwable ignored) {
+          }
+        }
+      }
+    }
+    addShopToLookupTable(shop);
+    registerShop(shop, true);
+    loadShop(shop);
+    shop.setSignText(plugin.getTextManager().findRelativeLanguages(p));
+
+    event = event.clone(Phase.MAIN);
+    event.callEvent();
   }
 
   /**
