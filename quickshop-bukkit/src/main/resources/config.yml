@@ -324,6 +324,13 @@ shop-blocks:
   - ENDER_CHEST
   - BARREL
 
+# Barter trading - item-for-item shops without currency
+barter:
+  # Enable barter shop creation
+  enabled: true
+  # Prevent shops from pricing an item with itself
+  allow-same-item: false
+
 shop:
 
   # Validate that a shop is still a valid shop block during lookups.

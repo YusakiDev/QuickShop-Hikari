@@ -235,6 +235,17 @@ shop-type:
   selling: SELLING
   buying: BUYING
   frozen: FROZEN
+barter:
+  price-format: "<amount>x <item>"
+  not-enough-items: "<red>You don't have enough <item>.</red>"
+  shop-full: "<red>This shop is full and cannot accept more items.</red>"
+  creation-gui-title: "Create Shop"
+  price-gui-title: "Set Barter Price"
+  selling-label: "Selling"
+  price-label: "Price"
+  confirm: "Confirm"
+  place-sell-item: "Place the item you want to sell"
+  place-price-item: "Place the item you want as payment"
 language:
   qa-issues: '<yellow>Quality assurance issues: <aqua>{0}%'
   code: '<yellow>Code: <gold>{0}'

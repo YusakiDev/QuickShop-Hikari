@@ -381,3 +381,6 @@ permissions:
   quickshop.self-trade:
     description: Allows a player to trade with their own shops
     default: true
+  quickshop.create.barter:
+    default: true
+    description: Allow creating barter shops
