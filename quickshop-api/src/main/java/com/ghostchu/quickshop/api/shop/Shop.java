@@ -81,6 +81,31 @@ public interface Shop extends Locatable<Location> {
   void setCurrency(@Nullable String currency);
 
   /**
+   * Gets the price item for barter shops.
+   *
+   * @return The price ItemStack (amount encodes quantity), or null if this is a currency shop
+   */
+  @Nullable
+  ItemStack getPriceItem();
+
+  /**
+   * Sets the price item for barter trading.
+   * Setting to null converts the shop back to currency mode.
+   *
+   * @param priceItem The price item with amount, or null to use currency
+   */
+  void setPriceItem(@Nullable ItemStack priceItem);
+
+  /**
+   * Check if this shop uses barter (item-for-item) trading.
+   *
+   * @return true if the shop has a price item set
+   */
+  default boolean isBarter() {
+    return getPriceItem() != null;
+  }
+
+  /**
    * Get shop's item durability, if have.
    *
    * @return Shop's item durability
