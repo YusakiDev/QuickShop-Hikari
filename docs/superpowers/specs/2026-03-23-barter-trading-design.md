@@ -35,7 +35,11 @@ One new nullable column on the `DATA` table:
 ALTER TABLE {table} ADD COLUMN price_item TEXT DEFAULT NULL;
 ```
 
-Stores `ItemStack.serializeAsBytes()` encoded as Base64. NULL means currency shop. Migration runs automatically on startup when the column doesn't exist. No data loss — all existing shops remain currency shops with `price_item = NULL`.
+Stores `ItemStack.serializeAsBytes()` encoded as Base64. NULL means currency shop.
+
+**New installs:** The `DataTables.DATA` enum definition must include `price_item TEXT DEFAULT NULL` in the CREATE TABLE statement so new installs get the column without needing migration.
+
+**Existing installs:** ALTER TABLE migration runs automatically on startup when the column doesn't exist. No data loss — all existing shops remain currency shops with `price_item = NULL`.
 
 ## Shop Creation Flow
 
@@ -60,7 +64,7 @@ Player clicks an empty chest. A GUI opens:
 
 **Price slot:** Player places the item they want as payment. Same copy behavior.
 
-**+/- buttons:** Adjacent to each slot, adjust the stack count displayed on the item. The item in the slot visually shows the quantity via vanilla stack size rendering.
+**+/- buttons:** Adjacent to each slot, adjust the stack count displayed on the item. For quantities above the item's max stack size (e.g., 128 iron ingots), the quantity is shown via the item's display name lore (e.g., "Amount: 128") since vanilla stack rendering caps at 64.
 
 **Confirm:** Creates the shop with the configured items and amounts.
 
@@ -76,7 +80,46 @@ Player clicks an empty chest. A GUI opens:
 - Player confirms without placing items: error message, stays in GUI
 - Price item same as shop item: blocked if `allow-same-item: false`
 
+## Economy Null-Guard Bypass
+
+Multiple methods in `SimpleShopManager` hard-block when no economy provider is loaded:
+
+- `actionCreate()` — line 446: returns with "Economy system not loaded" error
+- `actionTrade()` / `actionBuying()` / `actionSelling()` — similar guards via `shopIsNotValid()`
+
+For barter to work without an economy plugin, each of these guards must be bypassed for barter shops:
+
+```
+if (provider == null && !shop.isBarter()) {
+    // existing error — only for currency shops
+}
+```
+
+For `actionCreate()`, the guard fires before the shop exists, so the check is against the config:
+
+```
+if (provider == null && !barterEnabled) {
+    // error
+}
+```
+
+This is the core enablement change. Without it, barter shops cannot be created or traded on servers without an economy plugin.
+
 ## Transaction Flow
+
+### Barter Transaction Coordinator
+
+Two `SimpleInventoryTransaction`s must execute as a coordinated pair. Since each `SimpleInventoryTransaction` has its own independent rollback stack, a coordinator is needed:
+
+```
+1. Run Payment transaction (remove price items from buyer, add to shop)
+2. If Payment fails → abort, notify player
+3. Run Delivery transaction (remove shop items from shop, add to buyer)
+4. If Delivery fails → rollback Payment transaction, then abort
+5. Both succeeded → commit
+```
+
+This is NOT atomic in the database sense — there is a window between steps 1 and 3 where payment has occurred but delivery hasn't. The coordinator handles this by explicitly rolling back payment on delivery failure. This matches how the existing `QSEconomyTransaction` + `SimpleInventoryTransaction` pair works for currency shops (economy commit, then inventory, rollback economy on inventory failure).
 
 ### Buying from a Sell Shop
 
@@ -85,23 +128,23 @@ Example: shop sells diamonds, price is 3 iron ingots.
 1. Player clicks the shop
 2. Trade UI shows: "Buy 1 Diamond for 3 Iron Ingots"
 3. Player confirms amount
-4. Two `SimpleInventoryTransaction`s run atomically:
+4. Barter transaction coordinator runs:
    - **Payment:** Remove 3 iron ingots from player inventory, add to shop chest
    - **Delivery:** Remove 1 diamond from shop chest, add to player inventory
-5. If either transaction fails, both roll back. No partial trades.
+5. If delivery fails, payment rolls back. Player notified.
 
 ### Selling to a Buy Shop
 
 Example: shop buys diamonds, pays 3 iron ingots.
 
 1. Trade UI shows: "Sell 1 Diamond for 3 Iron Ingots"
-2. **Payment:** Remove 3 iron ingots from shop chest, add to player inventory
-3. **Delivery:** Remove 1 diamond from player inventory, add to shop chest
+2. **Payment:** Remove 1 diamond from player inventory, add to shop chest
+3. **Delivery:** Remove 3 iron ingots from shop chest, add to player inventory
 
 ### Pre-Trade Checks (Barter-Specific)
 
 - Does buyer have enough price items? If not: "You don't have enough [item name]"
-- Does shop chest have space for incoming items? If not: "Shop is full"
+- Does shop chest have space for incoming price items? This requires a **separate space check** against the price item type, not `getRemainingSpace()` which only measures space for the shop's sell item. Use `Util.countSpace(inventory, priceItemStack)` directly.
 - Does shop chest have enough stock? If not: "Shop is out of stock"
 
 ### What Does NOT Run for Barter Shops
@@ -113,7 +156,13 @@ Example: shop buys diamonds, pays 3 iron ingots.
 
 ### Event Compatibility
 
-Existing `ShopPurchaseEvent` and `ShopSuccessPurchaseEvent` still fire. They carry the `Shop` reference, so consumers can call `shop.isBarter()` and `shop.getPriceItem()`. Currency fields (`total`, `tax`) are 0.0 for barter trades.
+Existing `ShopPurchaseEvent` and `ShopSuccessPurchaseEvent` still fire. They carry the `Shop` reference, so consumers can call `shop.isBarter()` and `shop.getPriceItem()`.
+
+Currency fields (`total`, `tax`) are 0.0 for barter trades. **Compatibility caveat:** Third-party plugins listening to these events must check `shop.isBarter()` before interpreting `total` or `tax` values, as 0.0 does not mean "free" — it means "paid in items." This caveat should be documented in the event's Javadoc.
+
+### Purchase Logging
+
+Barter trades are logged to `LOG_PURCHASE` with `money = 0.0` and `tax = 0.0`. The price item info is not stored in the log table (would require schema changes to a logging table, not worth it for v1). The shop history UI will show barter trades with a "Barter" label instead of a currency amount, using `shop.isBarter()` to branch the display.
 
 ## Price Editing
 
@@ -171,10 +220,11 @@ Addons (bluemap, dynmap, pl3xmap) call `shop.getPrice()` for display. For barter
 barter:
   enabled: true              # enable barter shop creation
   allow-same-item: false     # prevent pricing an item with itself
-  allow-without-economy: true  # allow server to run without economy plugin
 ```
 
-When `barter.enabled: true` and no economy provider is loaded, QuickShop starts normally instead of showing an error. Only barter shops can be created in this mode.
+**Behavior when `barter.enabled: true` and no economy provider is loaded:**
+
+The economy null-guards in `actionCreate()`, `actionTrade()`, `shopIsNotValid()`, `actionBuying()`, and `actionSelling()` are bypassed for barter shops. QuickShop starts normally without an economy plugin. Only barter shops can be created in this mode. Attempting to create a currency shop without an economy plugin still shows the existing error.
 
 ## Permissions
 
@@ -196,9 +246,15 @@ void setPriceItem(@Nullable ItemStack item);
 boolean isBarter();
 ```
 
+### New Method on `DataRecord`
+
+```java
+@Nullable String getPriceItem();  // Base64-encoded ItemStack, null for currency shops
+```
+
 ### No New Events
 
-Existing events carry `Shop` reference. Consumers check `shop.isBarter()`.
+Existing events carry `Shop` reference. Consumers check `shop.isBarter()`. Javadoc updated to document that `total = 0.0` on barter trades does not mean free.
 
 ### No New Commands
 
@@ -211,15 +267,17 @@ Existing events carry `Shop` reference. Consumers check `shop.isBarter()`.
 | File | Change |
 |------|--------|
 | `Shop.java` (API) | Add 3 new methods |
+| `DataRecord.java` (API) | Add `getPriceItem()` method |
 | `ContainerShop.java` | Add `priceItem` field, persist/load, implement new methods |
-| `SimpleDataRecord.java` / `DataRecord.java` | Add `priceItem` field |
-| `DataTables.java` | Add `price_item` column, migration |
+| `SimpleDataRecord.java` | Add `priceItem` field, implement `DataRecord.getPriceItem()` |
+| `DataTables.java` | Add `price_item` to CREATE TABLE and ALTER TABLE migration |
 | `SimpleDatabaseHelperV2.java` | Read/write new field |
-| `ShopInfoStorage.java` | Add `priceItem` field |
+| `ShopInfoStorage.java` | Add `priceItem` field, update constructor (15th param) and all call sites (`ContainerShop.saveToInfoStorage()`) |
 | `ShopLoader.java` | Deserialize new field |
-| `SimpleShopManager.java` | Branch in `actionBuying`/`actionSelling` for barter; new creation GUI |
+| `SimpleShopManager.java` | Bypass economy null-guards for barter in `actionCreate`, `actionTrade`, `shopIsNotValid`, `actionBuying`, `actionSelling`; new creation GUI; barter transaction coordinator |
 | `SimpleShopLayoutProvider.java` | Barter price rendering on signs |
 | `MainPage.java` (keeper menu) | Barter-aware "Change Price" button |
+| `ShopPurchaseEvent.java` / `ShopSuccessPurchaseEvent.java` | Javadoc update for barter caveat |
 | `config.yml` | Add `barter` section |
 | `plugin.yml` | Add `quickshop.create.barter` permission |
 | `messages.yml` | Add barter-related message keys |
