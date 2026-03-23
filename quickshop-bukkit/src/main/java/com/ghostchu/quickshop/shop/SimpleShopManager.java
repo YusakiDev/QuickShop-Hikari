@@ -130,6 +130,7 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
   private boolean sendStockMessageToStaff;
   private boolean useShopableChecks;
   private boolean useShopCache;
+  private boolean barterEnabled;
   private IShopLayoutProvider shopLayoutProvider;
 
   //Initialize our shop types
@@ -196,6 +197,7 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
     this.sendStockMessageToStaff = plugin.getConfig().getBoolean("shop.sending-stock-message-to-staffs");
     this.useShopableChecks = plugin.getConfig().getBoolean("shop.shoppable-check", false);
     this.useShopCache = plugin.getConfig().getBoolean("shop.use-cache", true);
+    this.barterEnabled = plugin.getConfig().getBoolean("barter.enabled", false);
 
   }
 
@@ -423,7 +425,7 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
   @Override
   public boolean shopIsNotValid(@Nullable final QUser qUser, @NotNull final Info info, @NotNull final Shop shop) {
 
-    if(plugin.getEconomyManager().provider() == null) {
+    if(plugin.getEconomyManager().provider() == null && !shop.isBarter()) {
       MsgUtil.sendDirectMessage(qUser, Component.text("Error: Economy system not loaded, type /quickshop main command to get details.").color(NamedTextColor.RED));
       return true;
     }
@@ -443,7 +445,7 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
 
     final QUser createQUser = QUserImpl.createFullFilled(p);
     Util.ensureThread(false);
-    if(plugin.getEconomyManager().provider() == null) {
+    if(plugin.getEconomyManager().provider() == null && !barterEnabled) {
       MsgUtil.sendDirectMessage(p, Component.text("Error: Economy system not loaded, type /quickshop main command to get details.").color(NamedTextColor.RED));
       return;
     }
@@ -667,7 +669,7 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
       throw new IllegalStateException("The owner creating the shop is offline or not exist");
     }
 
-    if(plugin.getEconomyManager().provider() == null) {
+    if(plugin.getEconomyManager().provider() == null && !barterEnabled) {
       MsgUtil.sendDirectMessage(p, Component.text("Error: Economy system not loaded, type /quickshop main command to get details.").color(NamedTextColor.RED));
       return;
     }
@@ -1310,17 +1312,18 @@ public class SimpleShopManager extends AbstractShopManager implements ShopManage
   private void actionTrade(@NotNull final Player p, final Info info, @NotNull final String message) {
 
     Util.ensureThread(false);
-    if(plugin.getEconomyManager().provider() == null) {
-      MsgUtil.sendDirectMessage(p, Component.text("Error: Economy system not loaded, type /quickshop main command to get details.").color(NamedTextColor.RED));
-      return;
-    }
-    final EconomyProvider eco = plugin.getEconomyManager().provider();
 
     // Get the shop they interacted with
     final Shop shop = plugin.getShopManager().getShop(info.getLocation());
     // It's not valid anymore
     if(shop == null || !Util.canBeShop(info.getLocation().getBlock())) {
       plugin.text().of(p, "chest-was-removed").send();
+      return;
+    }
+
+    final EconomyProvider eco = plugin.getEconomyManager().provider();
+    if(eco == null && !shop.isBarter()) {
+      MsgUtil.sendDirectMessage(p, Component.text("Error: Economy system not loaded, type /quickshop main command to get details.").color(NamedTextColor.RED));
       return;
     }
     if(p.getGameMode() == GameMode.CREATIVE && disableCreativePurchase) {
