@@ -157,17 +157,17 @@ public class ShopCreationPage extends QuickShopPage {
                                        }
                                        // Clone the cursor item as the price item
                                        final ItemStack priceClone = cursor.clone();
+                                       final int amount = Math.max(1, cursor.getAmount());
                                        priceClone.setAmount(1);
                                        viewer.addData(PRICE_ITEM, priceClone);
-                                       viewer.addData(PRICE_AMOUNT, cursor.getAmount());
+                                       viewer.addData(PRICE_AMOUNT, amount);
 
-                                       // Return the cursor item to the player's inventory before reopening
-                                       // (reopening the GUI drops cursor items)
-                                       p.setItemOnCursor(null);
-                                       p.getInventory().addItem(cursor);
-
-                                       // Reopen on next tick so the cursor clear takes effect first
+                                       // Schedule everything to next tick — during the click event,
+                                       // Bukkit restores cursor state after handlers return
                                        QuickShop.folia().getScheduler().runAtEntityLater(p, ()->{
+                                         // Now safe to clear cursor and reopen
+                                         p.setItemOnCursor(null);
+                                         p.getInventory().addItem(cursor);
                                          final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
                                          menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
                                        }, 1);
