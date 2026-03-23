@@ -56,6 +56,12 @@ public class EconomyLoader {
       return setup();
     } catch(final Exception e) {
 
+      // If barter trading is enabled, economy is optional — don't disable the plugin
+      if(plugin.getConfig().getBoolean("barter.enabled", false)) {
+        plugin.logger().info("Economy system not available, but barter trading is enabled. QuickShop will operate in barter-only mode.");
+        return true;
+      }
+
       if(plugin.getSentryErrorReporter() != null) {
         plugin.getSentryErrorReporter().ignoreThrow();
       }
@@ -83,6 +89,11 @@ public class EconomyLoader {
 
     final EconomyProvider providerInstance = provider();
     if(providerInstance == null || !providerInstance.valid()) {
+      // If barter trading is enabled, economy is optional
+      if(plugin.getConfig().getBoolean("barter.enabled", false)) {
+        plugin.logger().info("Economy system not available, but barter trading is enabled. QuickShop will operate in barter-only mode.");
+        return true;
+      }
       plugin.setupBootError(BuiltInSolution.econError(), false);
       return false;
     }
