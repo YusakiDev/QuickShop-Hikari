@@ -25,6 +25,7 @@ import com.ghostchu.quickshop.api.shop.IShopLayoutProvider;
 import com.ghostchu.quickshop.api.shop.Shop;
 import com.ghostchu.quickshop.util.Util;
 import net.kyori.adventure.text.Component;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.LinkedList;
@@ -189,6 +190,12 @@ public class SimpleShopLayoutProvider implements IShopLayoutProvider {
    */
   @Override
   public Component renderPrice(final @NotNull Shop shop, final @NotNull ProxiedLocale locale) {
+
+    if (shop.isBarter() && shop.getPriceItem() != null) {
+      final ItemStack priceItem = shop.getPriceItem();
+      final Component itemName = Util.getItemStackName(priceItem);
+      return Component.text(priceItem.getAmount() + "x ").append(itemName);
+    }
 
     if(shop.isStackingShop()) {
 
