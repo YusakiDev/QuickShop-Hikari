@@ -1802,7 +1802,8 @@ public class ContainerShop implements Shop, Reloadable {
             getInventoryWrapperProvider(),
             saveToSymbolLink(),
             new Date(),
-            getShopBenefit().serialize()
+            getShopBenefit().serialize(),
+            null
     );
   }
 

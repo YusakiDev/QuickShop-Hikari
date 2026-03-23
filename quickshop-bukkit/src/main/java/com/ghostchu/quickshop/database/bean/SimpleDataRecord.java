@@ -3,6 +3,7 @@ package com.ghostchu.quickshop.database.bean;
 import com.ghostchu.quickshop.api.database.bean.DataRecord;
 import com.ghostchu.quickshop.api.obj.QUser;
 import com.ghostchu.quickshop.api.shop.PlayerFinder;
+import org.jetbrains.annotations.Nullable;
 import com.ghostchu.quickshop.common.util.QuickExecutor;
 import com.ghostchu.quickshop.obj.QUserImpl;
 import lombok.Data;
@@ -35,12 +36,13 @@ public class SimpleDataRecord implements DataRecord {
   private final Date createTime;
 
   private final String benefit;
+  @Nullable private final String priceItem;
 
   public SimpleDataRecord(final QUser owner, final String item, final String encoded, final String name,
                           final int type, final String currency, final double price, final boolean unlimited,
                           final boolean hologram, final QUser taxAccount, final String permissions,
                           final String extra, final String inventoryWrapper, final String inventorySymbolLink,
-                          final Date createTime, final String benefit) {
+                          final Date createTime, final String benefit, @Nullable final String priceItem) {
 
     this.owner = owner;
     this.item = item;
@@ -58,6 +60,7 @@ public class SimpleDataRecord implements DataRecord {
     this.inventorySymbolLink = inventorySymbolLink;
     this.createTime = createTime;
     this.benefit = benefit;
+    this.priceItem = priceItem;
   }
 
   public SimpleDataRecord(final PlayerFinder finder, final ResultSet set) throws SQLException {
@@ -86,6 +89,7 @@ public class SimpleDataRecord implements DataRecord {
     this.inventoryWrapper = set.getString("inv_wrapper");
     this.createTime = set.getTimestamp("create_time");
     this.benefit = set.getString("benefit");
+    this.priceItem = set.getString("price_item");
   }
 
   @NotNull
@@ -120,6 +124,7 @@ public class SimpleDataRecord implements DataRecord {
     map.put("inv_symbol_link", inventorySymbolLink);
     map.put("create_time", createTime);
     map.put("benefit", benefit);
+    map.put("price_item", priceItem);
     return map;
   }
 
@@ -218,4 +223,8 @@ public class SimpleDataRecord implements DataRecord {
 
     return benefit;
   }
+
+  @Override
+  @Nullable
+  public String getPriceItem() { return priceItem; }
 }
