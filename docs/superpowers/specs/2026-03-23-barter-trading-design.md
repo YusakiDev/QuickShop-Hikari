@@ -268,7 +268,7 @@ Existing events carry `Shop` reference. Consumers check `shop.isBarter()`. Javad
 |------|--------|
 | `Shop.java` (API) | Add 3 new methods |
 | `DataRecord.java` (API) | Add `getPriceItem()` method |
-| `ContainerShop.java` | Add `priceItem` field, persist/load, implement new methods |
+| `ContainerShop.java` | Add `priceItem` field, persist/load, implement new methods. Update `inventoryAvailable()` to use `Util.countSpace(getInventory(), getPriceItem())` for barter buy shops so sign status and trade validation correctly reflect space for incoming price items |
 | `SimpleDataRecord.java` | Add `priceItem` field, implement `DataRecord.getPriceItem()` |
 | `DataTables.java` | Add `price_item` to CREATE TABLE and ALTER TABLE migration |
 | `SimpleDatabaseHelperV2.java` | Read/write new field |
