@@ -48,6 +48,7 @@ public enum DataTables {
 
     table.addColumn("create_time", "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"); // SHOP CREATE TIME
     table.addColumn("benefit", "MEDIUMTEXT"); // BENEFIT (JSON) version 10
+    table.addColumn("price_item", "TEXT"); // BARTER PRICE ITEM (NULL = currency shop)
     // table.addColumn("remove_time", "DATETIME"); // SHOP REMOVE TIME (NULL if not removed)
 
     table.setIndex(IndexType.INDEX, "idx_qs_data_owner", "owner");
