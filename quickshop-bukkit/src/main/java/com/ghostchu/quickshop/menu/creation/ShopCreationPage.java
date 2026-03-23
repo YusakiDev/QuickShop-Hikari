@@ -21,19 +21,16 @@ import com.ghostchu.quickshop.QuickShop;
 import com.ghostchu.quickshop.api.inventory.InventoryWrapperManager;
 import com.ghostchu.quickshop.api.obj.QUser;
 import com.ghostchu.quickshop.economy.QSBenefitProvider;
-import com.ghostchu.quickshop.menu.shared.GuiChatAction;
 import com.ghostchu.quickshop.menu.shared.QuickShopPage;
 import com.ghostchu.quickshop.obj.QUserImpl;
 import com.ghostchu.quickshop.shop.ContainerShop;
 import com.ghostchu.quickshop.shop.inventory.BukkitInventoryWrapperManager;
-import com.ghostchu.quickshop.util.Util;
 import com.ghostchu.quickshop.util.logger.Log;
 import net.tnemc.item.bukkit.BukkitItemStack;
 import net.tnemc.menu.core.builder.IconBuilder;
 import net.tnemc.menu.core.callbacks.page.PageOpenCallback;
 import net.tnemc.menu.core.compatibility.MenuPlayer;
 import net.tnemc.menu.core.icon.action.impl.RunnableAction;
-import net.tnemc.menu.core.manager.MenuManager;
 import net.tnemc.menu.core.viewer.MenuViewer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -62,7 +59,7 @@ import static com.ghostchu.quickshop.shop.SimpleShopManager.SELLING_TYPE;
  * ShopCreationPage - The main page for the shop creation GUI.
  *
  * Layout (3 rows, 27 slots):
- * Row 0: [x] [x] [Sell Label] [x] [x] [x] [Price Label] [x] [x]
+ * Row 0: [x] [x] [x] [Sell Label] [x] [x] [x] [Price Label] [x]
  * Row 1: [x] [x] [-]  [SELL]  [+] [x] [-]  [PRICE]      [+]
  * Row 2: [x] [x] [x]  [x] [CONFIRM] [x] [x] [x]         [x]
  *
@@ -73,8 +70,8 @@ import static com.ghostchu.quickshop.shop.SimpleShopManager.SELLING_TYPE;
  */
 public class ShopCreationPage extends QuickShopPage {
 
-  private static final int SLOT_SELL_LABEL = 2;
-  private static final int SLOT_PRICE_LABEL = 6;
+  private static final int SLOT_SELL_LABEL = 3;
+  private static final int SLOT_PRICE_LABEL = 7;
   private static final int SLOT_SELL_DEC = 11;
   private static final int SLOT_SELL_ITEM = 12;
   private static final int SLOT_SELL_INC = 13;
@@ -144,53 +141,33 @@ public class ShopCreationPage extends QuickShopPage {
       priceItem.setAmount(priceAmount);
       open.getPage().addIcon(new IconBuilder(new BukkitItemStack().of(priceItem)).withSlot(SLOT_PRICE_ITEM).build());
     } else {
-      // Show a placeholder prompting the player to set the price item
+      // Show a placeholder prompting the player to pick up an item and click this slot
       open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of("HOPPER", 1)
                                                      .display(QuickShop.getInstance().platform().miniMessage().deserialize("<yellow>Click to set price item</yellow>"))
-                                                     .lore(Collections.singletonList(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Hold the item you want as payment and type 'confirm'</gray>"))))
-                                     .withActions(new GuiChatAction((message)->{
-                                       if(message.equalsIgnoreCase("confirm")) {
-                                         final Player p = Bukkit.getPlayer(id);
-                                         if(p == null) {
-                                           return true;
-                                         }
-                                         final ItemStack mainHand = p.getInventory().getItemInMainHand();
-                                         if(mainHand.getType().isAir()) {
-                                           p.sendMessage(guiMessage("creation.hold-item"));
-                                           return false;
-                                         }
-                                         // Store the price item (clone with amount 1)
-                                         final ItemStack priceClone = mainHand.clone();
-                                         priceClone.setAmount(1);
-
-                                         final MenuViewer v = new MenuViewer(id);
-                                         MenuManager.instance().addViewer(v);
-                                         // Copy all existing data
-                                         copyViewerData(viewer, v);
-                                         v.addData(PRICE_ITEM, priceClone);
-                                         v.addData(PRICE_AMOUNT, 1);
-
-                                         final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
-                                         MenuManager.instance().open("qs:creation", CREATION_MAIN, menuPlayer);
-                                         return true;
-                                       }
-                                       if(message.equalsIgnoreCase("cancel")) {
-                                         final Player p = Bukkit.getPlayer(id);
-                                         if(p != null) {
-                                           final MenuViewer v = new MenuViewer(id);
-                                           MenuManager.instance().addViewer(v);
-                                           copyViewerData(viewer, v);
-                                           final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
-                                           MenuManager.instance().open("qs:creation", CREATION_MAIN, menuPlayer);
-                                         }
-                                         return true;
-                                       }
+                                                     .lore(Collections.singletonList(QuickShop.getInstance().platform().miniMessage().deserialize("<gray>Pick up an item from your inventory, then click here</gray>"))))
+                                     .withActions(new RunnableAction((click)->{
                                        final Player p = Bukkit.getPlayer(id);
-                                       if(p != null) {
-                                         p.sendMessage(guiMessage("creation.type-confirm"));
+                                       if(p == null) {
+                                         return;
                                        }
-                                       return false;
-                                     }, guiMessage("creation.hold-price-item"), false))
+                                       final ItemStack cursor = p.getItemOnCursor();
+                                       if(cursor.getType().isAir()) {
+                                         p.sendMessage(guiMessage("creation.hold-item"));
+                                         return;
+                                       }
+                                       // Clone the cursor item as the price item
+                                       final ItemStack priceClone = cursor.clone();
+                                       priceClone.setAmount(1);
+                                       viewer.addData(PRICE_ITEM, priceClone);
+                                       viewer.addData(PRICE_AMOUNT, cursor.getAmount());
+
+                                       // Return the cursor item to the player
+                                       p.setItemOnCursor(cursor);
+
+                                       // Reopen the menu to refresh (shows +/- buttons and confirm)
+                                       final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
+                                       menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                     }))
                                      .withSlot(SLOT_PRICE_ITEM).build());
     }
 
@@ -200,9 +177,13 @@ public class ShopCreationPage extends QuickShopPage {
                                    .withActions(new RunnableAction((click)->{
                                      final int current = (Integer)viewer.findData(SELL_AMOUNT).orElse(1);
                                      if(current > 1) {
-                                       viewer.addData(SELL_AMOUNT, current - 1);
-                                       final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
-                                       menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                       final int newAmount = current - 1;
+                                       viewer.addData(SELL_AMOUNT, newAmount);
+                                       viewer.findData(SELL_ITEM).ifPresent(obj->{
+                                         final ItemStack updated = ((ItemStack)obj).clone();
+                                         updated.setAmount(newAmount);
+                                         click.player().inventory().updateInventory(SLOT_SELL_ITEM, new BukkitItemStack().of(updated));
+                                       });
                                      }
                                    }))
                                    .withSlot(SLOT_SELL_DEC).build());
@@ -213,9 +194,13 @@ public class ShopCreationPage extends QuickShopPage {
                                    .withActions(new RunnableAction((click)->{
                                      final int current = (Integer)viewer.findData(SELL_AMOUNT).orElse(1);
                                      if(current < 64) {
-                                       viewer.addData(SELL_AMOUNT, current + 1);
-                                       final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
-                                       menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                       final int newAmount = current + 1;
+                                       viewer.addData(SELL_AMOUNT, newAmount);
+                                       viewer.findData(SELL_ITEM).ifPresent(obj->{
+                                         final ItemStack updated = ((ItemStack)obj).clone();
+                                         updated.setAmount(newAmount);
+                                         click.player().inventory().updateInventory(SLOT_SELL_ITEM, new BukkitItemStack().of(updated));
+                                       });
                                      }
                                    }))
                                    .withSlot(SLOT_SELL_INC).build());
@@ -227,9 +212,13 @@ public class ShopCreationPage extends QuickShopPage {
                                      .withActions(new RunnableAction((click)->{
                                        final int current = (Integer)viewer.findData(PRICE_AMOUNT).orElse(1);
                                        if(current > 1) {
-                                         viewer.addData(PRICE_AMOUNT, current - 1);
-                                         final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
-                                         menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                         final int newAmount = current - 1;
+                                         viewer.addData(PRICE_AMOUNT, newAmount);
+                                         viewer.findData(PRICE_ITEM).ifPresent(obj->{
+                                           final ItemStack updated = ((ItemStack)obj).clone();
+                                           updated.setAmount(newAmount);
+                                           click.player().inventory().updateInventory(SLOT_PRICE_ITEM, new BukkitItemStack().of(updated));
+                                         });
                                        }
                                      }))
                                      .withSlot(SLOT_PRICE_DEC).build());
@@ -240,9 +229,13 @@ public class ShopCreationPage extends QuickShopPage {
                                      .withActions(new RunnableAction((click)->{
                                        final int current = (Integer)viewer.findData(PRICE_AMOUNT).orElse(1);
                                        if(current < 64) {
-                                         viewer.addData(PRICE_AMOUNT, current + 1);
-                                         final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
-                                         menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                         final int newAmount = current + 1;
+                                         viewer.addData(PRICE_AMOUNT, newAmount);
+                                         viewer.findData(PRICE_ITEM).ifPresent(obj->{
+                                           final ItemStack updated = ((ItemStack)obj).clone();
+                                           updated.setAmount(newAmount);
+                                           click.player().inventory().updateInventory(SLOT_PRICE_ITEM, new BukkitItemStack().of(updated));
+                                         });
                                        }
                                      }))
                                      .withSlot(SLOT_PRICE_INC).build());
@@ -324,17 +317,4 @@ public class ShopCreationPage extends QuickShopPage {
     });
   }
 
-  /**
-   * Copies all creation-related viewer data from one viewer to another.
-   */
-  private static void copyViewerData(final MenuViewer from, final MenuViewer to) {
-
-    from.findData(SELL_ITEM).ifPresent(v->to.addData(SELL_ITEM, v));
-    from.findData(SELL_AMOUNT).ifPresent(v->to.addData(SELL_AMOUNT, v));
-    from.findData(PRICE_ITEM).ifPresent(v->to.addData(PRICE_ITEM, v));
-    from.findData(PRICE_AMOUNT).ifPresent(v->to.addData(PRICE_AMOUNT, v));
-    from.findData(SHOP_LOCATION).ifPresent(v->to.addData(SHOP_LOCATION, v));
-    from.findData(SIGN_BLOCK).ifPresent(v->to.addData(SIGN_BLOCK, v));
-    from.findData(BYPASS).ifPresent(v->to.addData(BYPASS, v));
-  }
 }

@@ -56,6 +56,7 @@ public class ShopCreationMenu extends QuickShopMenu {
 
     this.rows = 3;
     this.name = "qs:creation";
+    this.bottom = true;
 
     setOpen((open)->open.getMenu().setTitle(legacy(open.getPlayer().identifier(), "gui.creation.title")));
 

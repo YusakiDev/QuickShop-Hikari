@@ -5,12 +5,16 @@ import com.ghostchu.quickshop.util.holder.QuickShopPreviewGUIHolder;
 import com.ghostchu.simplereloadlib.ReloadResult;
 import com.ghostchu.simplereloadlib.ReloadStatus;
 import net.tnemc.menu.core.manager.MenuManager;
+import net.tnemc.menu.core.viewer.MenuViewer;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryInteractEvent;
+
+import java.util.Optional;
 
 public class CustomInventoryListener extends AbstractQSListener {
 
@@ -40,6 +44,45 @@ public class CustomInventoryListener extends AbstractQSListener {
 
     if(e.getInventory().getHolder(false) instanceof QuickShopPreviewGUIHolder) {
       e.setCancelled(true);
+    }
+  }
+
+  /**
+   * Prevents shift-click from moving items into the creation GUI's top inventory.
+   * The creation menu uses bottom=true to allow cursor-based price item selection,
+   * so we need to block shift-clicks that would place items into GUI slots.
+   */
+  @EventHandler(priority = EventPriority.HIGH)
+  public void onCreationGuiClick(final InventoryClickEvent e) {
+
+    final Optional<MenuViewer> viewerOpt = MenuManager.instance().findViewer(e.getWhoClicked().getUniqueId());
+    if(viewerOpt.isEmpty() || !"qs:creation".equals(viewerOpt.get().menu())) {
+      return;
+    }
+
+    // Block shift-clicks (would move items into the GUI)
+    if(e.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+      e.setCancelled(true);
+    }
+  }
+
+  /**
+   * Prevents drag events from placing items into the creation GUI's top inventory slots.
+   */
+  @EventHandler(priority = EventPriority.HIGH)
+  public void onCreationGuiDrag(final InventoryDragEvent e) {
+
+    final Optional<MenuViewer> viewerOpt = MenuManager.instance().findViewer(e.getWhoClicked().getUniqueId());
+    if(viewerOpt.isEmpty() || !"qs:creation".equals(viewerOpt.get().menu())) {
+      return;
+    }
+
+    // Cancel if any of the dragged slots are in the top inventory (slots 0-26 for 3-row chest)
+    for(final int slot : e.getRawSlots()) {
+      if(slot < 27) {
+        e.setCancelled(true);
+        return;
+      }
     }
   }
 
