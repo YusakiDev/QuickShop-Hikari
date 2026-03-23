@@ -13,10 +13,14 @@ import com.ghostchu.quickshop.api.shop.ShopAction;
 import com.ghostchu.quickshop.api.shop.permission.BuiltInShopPermission;
 import com.ghostchu.quickshop.common.util.CommonUtil;
 import com.ghostchu.quickshop.common.util.RomanNumber;
+import com.ghostchu.quickshop.menu.creation.ShopCreationMenu;
 import com.ghostchu.quickshop.obj.QUserImpl;
 import com.ghostchu.quickshop.shop.SimpleInfo;
 import com.ghostchu.quickshop.shop.display.AbstractDisplayItem;
 import com.ghostchu.quickshop.util.logger.Log;
+import net.tnemc.menu.core.compatibility.MenuPlayer;
+import net.tnemc.menu.core.manager.MenuManager;
+import net.tnemc.menu.core.viewer.MenuViewer;
 import lombok.Getter;
 import lombok.Setter;
 import net.kyori.adventure.text.Component;
@@ -257,6 +261,22 @@ public class Util {
     if(event.callCancellableEvent()) {
 
       Log.debug("ShopCreateEvent PRE_CANCELLABLE phase cancelled");
+      return false;
+    }
+
+    // When barter is enabled, open the creation GUI instead of chat prompt
+    if(plugin.getConfig().getBoolean("barter.enabled", false)) {
+      final MenuViewer viewer = new MenuViewer(player.getUniqueId());
+      viewer.addData(ShopCreationMenu.SELL_ITEM, stack.clone());
+      viewer.addData(ShopCreationMenu.SELL_AMOUNT, stack.getAmount());
+      viewer.addData(ShopCreationMenu.SHOP_LOCATION, block.getLocation());
+      viewer.addData(ShopCreationMenu.SIGN_BLOCK, last);
+      viewer.addData(ShopCreationMenu.BYPASS, false);
+      MenuManager.instance().addViewer(viewer);
+
+      final MenuPlayer menuPlayer = plugin.createMenuPlayer(player);
+      MenuManager.instance().open("qs:creation", ShopCreationMenu.CREATION_MAIN, menuPlayer);
+      Log.debug("==== Ending Shop Creation (Barter GUI) ====");
       return false;
     }
 

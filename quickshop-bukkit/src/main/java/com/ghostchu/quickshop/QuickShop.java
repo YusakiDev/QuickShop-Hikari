@@ -59,6 +59,7 @@ import com.ghostchu.quickshop.menu.ShopHistoryMenu;
 import com.ghostchu.quickshop.menu.ShopKeeperMenu;
 import com.ghostchu.quickshop.menu.ShopStaffMenu;
 import com.ghostchu.quickshop.menu.ShopTradeMenu;
+import com.ghostchu.quickshop.menu.creation.ShopCreationMenu;
 import com.ghostchu.quickshop.metric.MetricListener;
 import com.ghostchu.quickshop.papi.QuickShopPAPI;
 import com.ghostchu.quickshop.permission.PermissionManager;
@@ -766,6 +767,7 @@ public class QuickShop implements QuickShopAPI, Reloadable {
     MenuManager.instance().addMenu(new ShopBrowseMenu());
     MenuManager.instance().addMenu(new ShopTradeMenu());
     MenuManager.instance().addMenu(new ShopStaffMenu());
+    MenuManager.instance().addMenu(new ShopCreationMenu());
 
     registerService();
     /* Check the running envs is support or not. */
