@@ -1934,6 +1934,8 @@ gui:
     keeper:
       # Shown when player clicks "Change Price" button
       enter-price: "<yellow>Enter a new price in chat.</yellow>"
+      # Shown when player clicks "Change Price" button on a barter shop
+      enter-price-barter: "<yellow>Hold the new price item in your main hand, then type the amount in chat.</yellow>"
       # Shown when player clicks "Delete Shop" button
       confirm-delete: "<yellow>Type '<white>confirm</white>' in chat to delete your shop. Type anything else to cancel.</yellow>"
     # Staff menu messages

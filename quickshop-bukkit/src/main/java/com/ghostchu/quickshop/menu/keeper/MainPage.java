@@ -125,26 +125,56 @@ public class MainPage extends QuickShopPage {
 
         if(shop.get().playerAuthorize(id, BuiltInShopPermission.SET_PRICE)
            || QuickShop.getInstance().perm().hasPermission(player, "quickshop.other.price")) {
-          open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(changePriceMaterial, 1)
-                                                         .display(getConfigDisplay(id, changePriceConfig, "<bold><green>Change Price</green></bold>"))
-                                                         .lore(getConfigLore(id, changePriceConfig, currentPrice)))
-                                         .withActions(new GuiChatAction((message)->{
-                                           if(!message.isEmpty()) {
-                                             try {
-                                               final BigDecimal price = new BigDecimal(message);
-                                               // Update price and reopen menu in the same region thread to ensure price is updated before GUI shows
-                                               Util.regionThread(shop.get().getLocation(), ()->{
-                                                 ShopUtil.setPrice(QuickShop.getInstance(), QUserImpl.createFullFilled(player), price.doubleValue(), shop.get());
-                                                 // Reopen menu after price is set
-                                                 final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
-                                                 menuPlayer.inventory().openMenu(menuPlayer, "qs:keeper", KEEPER_MAIN);
-                                               });
-                                               return true;
-                                             } catch(final NumberFormatException ignore) { }
-                                           }
-                                           return true;
-                                         }, guiMessage("keeper.enter-price"), false))  // false = don't auto-reopen, we handle it manually
-                                         .withSlot(changePriceSlot).build());
+          if(shop.get().isBarter()) {
+            // Barter shop: prompt the player to hold the new price item and type the amount
+            open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(changePriceMaterial, 1)
+                                                           .display(getConfigDisplay(id, changePriceConfig, "<bold><green>Change Price</green></bold>"))
+                                                           .lore(getConfigLore(id, changePriceConfig, currentPrice)))
+                                           .withActions(new GuiChatAction((message)->{
+                                             if(!message.isEmpty()) {
+                                               try {
+                                                 final int amount = Integer.parseInt(message.trim());
+                                                 if(amount > 0) {
+                                                   final ItemStack heldItem = player.getInventory().getItemInMainHand();
+                                                   if(heldItem.getType().isAir()) {
+                                                     return true;
+                                                   }
+                                                   final ItemStack newPriceItem = heldItem.clone();
+                                                   newPriceItem.setAmount(amount);
+                                                   Util.regionThread(shop.get().getLocation(), ()->{
+                                                     shop.get().setPriceItem(newPriceItem);
+                                                     shop.get().update();
+                                                     final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
+                                                     menuPlayer.inventory().openMenu(menuPlayer, "qs:keeper", KEEPER_MAIN);
+                                                   });
+                                                 }
+                                               } catch(final NumberFormatException ignore) { }
+                                             }
+                                             return true;
+                                           }, guiMessage("keeper.enter-price-barter"), false))  // false = don't auto-reopen, we handle it manually
+                                           .withSlot(changePriceSlot).build());
+          } else {
+            open.getPage().addIcon(new IconBuilder(QuickShop.getInstance().stack().of(changePriceMaterial, 1)
+                                                           .display(getConfigDisplay(id, changePriceConfig, "<bold><green>Change Price</green></bold>"))
+                                                           .lore(getConfigLore(id, changePriceConfig, currentPrice)))
+                                           .withActions(new GuiChatAction((message)->{
+                                             if(!message.isEmpty()) {
+                                               try {
+                                                 final BigDecimal price = new BigDecimal(message);
+                                                 // Update price and reopen menu in the same region thread to ensure price is updated before GUI shows
+                                                 Util.regionThread(shop.get().getLocation(), ()->{
+                                                   ShopUtil.setPrice(QuickShop.getInstance(), QUserImpl.createFullFilled(player), price.doubleValue(), shop.get());
+                                                   // Reopen menu after price is set
+                                                   final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(player);
+                                                   menuPlayer.inventory().openMenu(menuPlayer, "qs:keeper", KEEPER_MAIN);
+                                                 });
+                                                 return true;
+                                               } catch(final NumberFormatException ignore) { }
+                                             }
+                                             return true;
+                                           }, guiMessage("keeper.enter-price"), false))  // false = don't auto-reopen, we handle it manually
+                                           .withSlot(changePriceSlot).build());
+          }
         }
 
         // Mode Toggle Icon from config (concrete for clean look)
