@@ -161,12 +161,16 @@ public class ShopCreationPage extends QuickShopPage {
                                        viewer.addData(PRICE_ITEM, priceClone);
                                        viewer.addData(PRICE_AMOUNT, cursor.getAmount());
 
-                                       // Return the cursor item to the player
-                                       p.setItemOnCursor(cursor);
+                                       // Return the cursor item to the player's inventory before reopening
+                                       // (reopening the GUI drops cursor items)
+                                       p.setItemOnCursor(null);
+                                       p.getInventory().addItem(cursor);
 
-                                       // Reopen the menu to refresh (shows +/- buttons and confirm)
-                                       final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
-                                       menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                       // Reopen on next tick so the cursor clear takes effect first
+                                       QuickShop.folia().getScheduler().runAtEntityLater(p, ()->{
+                                         final MenuPlayer menuPlayer = QuickShop.getInstance().createMenuPlayer(p);
+                                         menuPlayer.inventory().openMenu(menuPlayer, "qs:creation", CREATION_MAIN);
+                                       }, 1);
                                      }))
                                      .withSlot(SLOT_PRICE_ITEM).build());
     }
